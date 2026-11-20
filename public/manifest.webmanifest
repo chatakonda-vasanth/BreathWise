@@ -1,0 +1,35 @@
+{
+  "name": "CleanAir Companion",
+  "short_name": "CleanAir",
+  "description": "Privacy-first, location-aware guidance for smog days: air quality, a household plan and low-emission alternatives.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4f7fb",
+  "theme_color": "#0b5f74",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["health", "weather", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

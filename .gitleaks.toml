@@ -1,0 +1,18 @@
+# gitleaks configuration
+# Test fixtures deliberately contain fake key-shaped strings (e.g. AIzaLEAK)
+# to prove they are not echoed to clients, so those paths are allow-listed.
+
+title = "CleanAir Companion"
+
+[allowlist]
+description = "Fake secrets used by tests and docs to prove non-leakage"
+paths = [
+  '''tests/.*''',
+  '''scripts/make-icons\.mjs''',
+]
+regexes = [
+  '''AIzaLEAK''',
+  '''AIzaSECRETSECRETSECRETSECRETSECRET123''',
+  '''test-key-not-real''',
+  '''fake-token''',
+]

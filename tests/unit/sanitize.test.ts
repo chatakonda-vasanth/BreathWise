@@ -1,0 +1,86 @@
+import { describe, expect, it } from 'vitest';
+import {
+  containsMarkup,
+  looksLikeMedicalAdvice,
+  sanitizePlan,
+  sanitizeText,
+  scriptMatches,
+} from '@/lib/sanitize';
+import { buildFallbackPlan } from '@/lib/fallbackPlan';
+import { deriveIndices } from '@/lib/indices';
+import { PROFILE, SNAPSHOT } from '../fixtures';
+
+describe('sanitizeText', () => {
+  it('strips tags, script blocks and markdown links', () => {
+    expect(sanitizeText('<script>alert(1)</script>Hello', 200)).toBe('Hello');
+    expect(sanitizeText('Read <b>this</b> now', 200)).toBe('Read this now');
+    expect(sanitizeText('[click](javascript:alert(1)) here', 200)).toBe('click here');
+  });
+
+  it('removes control characters and zero-width characters', () => {
+    expect(sanitizeText('a\u0000b\u200Bc', 200)).toBe('abc');
+  });
+
+  it('caps length with an ellipsis', () => {
+    const result = sanitizeText('a'.repeat(50), 10);
+    expect(result.length).toBeLessThanOrEqual(10);
+    expect(result.endsWith('…')).toBe(true);
+  });
+
+  it('collapses whitespace but keeps paragraphs', () => {
+    expect(sanitizeText('a   b\n\n\n\nc', 200)).toBe('a b\n\nc');
+  });
+
+  it('detects markup', () => {
+    expect(containsMarkup('<img src=x onerror=alert(1)>')).toBe(true);
+    expect(containsMarkup('plain text')).toBe(false);
+  });
+});
+
+describe('medical safety guard', () => {
+  it('flags dosages, drugs and diagnosis language', () => {
+    expect(looksLikeMedicalAdvice('Take 500 mg paracetamol twice a day')).toBe(true);
+    expect(looksLikeMedicalAdvice('Dosage: two tablets daily')).toBe(true);
+    expect(looksLikeMedicalAdvice('You have asthma')).toBe(true);
+    expect(looksLikeMedicalAdvice('Your diagnosis is COPD')).toBe(true);
+    expect(looksLikeMedicalAdvice('Prescribed inhaler for symptoms')).toBe(true);
+  });
+
+  it('does not flag ordinary guidance', () => {
+    expect(looksLikeMedicalAdvice('Open opposite windows for 10 minutes.')).toBe(false);
+    expect(looksLikeMedicalAdvice('Wear a fitted N95 mask outdoors.')).toBe(false);
+    expect(looksLikeMedicalAdvice('Seek medical help if breathing worsens.')).toBe(false);
+  });
+});
+
+describe('script matching', () => {
+  it('accepts the correct script per language', () => {
+    expect(scriptMatches('hi', 'हवा आज साफ़ है')).toBe(true);
+    expect(scriptMatches('te', 'గాలి శుభ్రంగా ఉంది')).toBe(true);
+    expect(scriptMatches('en', 'The air is clean today')).toBe(true);
+  });
+
+  it('rejects a mismatched script', () => {
+    expect(scriptMatches('hi', 'The air is clean today')).toBe(false);
+    expect(scriptMatches('te', 'हवा आज साफ़ है')).toBe(false);
+    expect(scriptMatches('en', 'हवा आज साफ़ है')).toBe(false);
+  });
+});
+
+describe('sanitizePlan', () => {
+  it('removes markup from every plan string', () => {
+    const plan = buildFallbackPlan({
+      snapshot: SNAPSHOT,
+      profile: PROFILE,
+      language: 'en',
+      severity: deriveIndices(SNAPSHOT).severity,
+      naqiBand: deriveIndices(SNAPSHOT).naqi.band,
+    });
+    plan.headline = '<script>alert(1)</script>Headline';
+    plan.indoorHacks[0]!.detail = '<img src=x onerror=alert(1)>Detail';
+
+    const cleaned = sanitizePlan(plan);
+    expect(cleaned.headline).toBe('Headline');
+    expect(containsMarkup(cleaned.indoorHacks[0]!.detail)).toBe(false);
+  });
+});

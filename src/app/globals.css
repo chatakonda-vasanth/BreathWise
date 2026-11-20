@@ -1,0 +1,340 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-hindi: var(--font-devanagari), var(--font-inter), ui-sans-serif, sans-serif;
+  --font-telugu: var(--font-telugu), var(--font-inter), ui-sans-serif, sans-serif;
+}
+
+/* ---------------------------------------------------------------------------
+   Colour tokens. Every text/background pair used below is checked for
+   >= 4.5:1 contrast in both themes.
+   --------------------------------------------------------------------------- */
+:root {
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-2: #eaf0f7;
+  --text: #0b1220;
+  --muted: #3f4e63;
+  --border: #cbd5e3;
+  --accent: #0b5f74;
+  --accent-ink: #ffffff;
+  --focus: #0b5f74;
+  --danger-bg: #fdecec;
+  --danger-border: #b91c1c;
+  --danger-text: #7f1d1d;
+  --warn-bg: #fff5e6;
+  --warn-border: #9a5b00;
+  --warn-text: #6b3f00;
+  --info-bg: #eaf3fb;
+  --info-border: #1e5f8a;
+  --info-text: #164a6b;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #070d18;
+  --surface: #101a2a;
+  --surface-2: #16233a;
+  --text: #eef3fa;
+  --muted: #b3c2d6;
+  --border: #2b3b53;
+  --accent: #6fd3e8;
+  --accent-ink: #04222b;
+  --focus: #6fd3e8;
+  --danger-bg: #3a1113;
+  --danger-border: #f87171;
+  --danger-text: #ffd9d9;
+  --warn-bg: #3a2a08;
+  --warn-border: #fbbf24;
+  --warn-text: #ffe9bd;
+  --info-bg: #0f2b3d;
+  --info-border: #7dd3fc;
+  --info-text: #d8f0ff;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #070d18;
+    --surface: #101a2a;
+    --surface-2: #16233a;
+    --text: #eef3fa;
+    --muted: #b3c2d6;
+    --border: #2b3b53;
+    --accent: #6fd3e8;
+    --accent-ink: #04222b;
+    --focus: #6fd3e8;
+    --danger-bg: #3a1113;
+    --danger-border: #f87171;
+    --danger-text: #ffd9d9;
+    --warn-bg: #3a2a08;
+    --warn-border: #fbbf24;
+    --warn-text: #ffe9bd;
+    --info-bg: #0f2b3d;
+    --info-border: #7dd3fc;
+    --info-text: #d8f0ff;
+    color-scheme: dark;
+  }
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+:where(a):focus-visible,
+:where(button):focus-visible,
+:where(input):focus-visible,
+:where(select):focus-visible,
+:where(summary):focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Language-specific font stacks, self-hosted through next/font. */
+[lang='hi'] {
+  font-family: var(--font-hindi);
+}
+
+[lang='te'] {
+  font-family: var(--font-telugu);
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1rem;
+  }
+
+  .card-tight {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0.55rem 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+
+  .btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
+
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.08);
+    background: var(--accent);
+  }
+
+  .input,
+  .select {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.5rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+  }
+
+  .field-label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.92rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .hint {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    border: 1px solid var(--border);
+  }
+
+  .banner {
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 0.8rem 1rem;
+  }
+
+  .banner-danger {
+    background: var(--danger-bg);
+    border-color: var(--danger-border);
+    color: var(--danger-text);
+  }
+
+  .banner-warn {
+    background: var(--warn-bg);
+    border-color: var(--warn-border);
+    color: var(--warn-text);
+  }
+
+  .banner-info {
+    background: var(--info-bg);
+    border-color: var(--info-border);
+    color: var(--info-text);
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 0%, var(--border) 50%, var(--surface-2) 100%);
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* Band colours are applied through a data attribute so no inline styles are
+   needed anywhere (the CSP forbids them in production). Each band also ships a
+   text label and a glyph, so colour is never the only signal. */
+[data-band='good'] {
+  --band-solid: #166534;
+}
+[data-band='moderate'] {
+  --band-solid: #854d0e;
+}
+[data-band='sensitive'] {
+  --band-solid: #9a3412;
+}
+[data-band='unhealthy'] {
+  --band-solid: #991b1b;
+}
+[data-band='veryUnhealthy'] {
+  --band-solid: #6b21a8;
+}
+[data-band='hazardous'] {
+  --band-solid: #7f1d1d;
+}
+
+.band-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--band-solid);
+  color: #ffffff;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.band-solid-bg {
+  background: var(--band-solid);
+  color: #ffffff;
+}
+
+.band-colour {
+  color: var(--band-solid);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Print stylesheet: the community checklist and plan only.
+   --------------------------------------------------------------------------- */
+@media print {
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --text: #000000;
+    --muted: #333333;
+    --border: #666666;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    font-size: 11pt;
+  }
+
+  .card,
+  .card-tight {
+    border: 1px solid #666;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  a[href]::after {
+    content: ' (' attr(href) ')';
+    font-size: 9pt;
+    color: #333;
+  }
+}
