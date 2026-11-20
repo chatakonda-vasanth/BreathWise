@@ -30,10 +30,10 @@ test('a malicious city name cannot break the flow', async ({ page }) => {
   );
 
   await page.goto('/');
-  await page.getByLabel(/Where are you today\?/i).fill('Delhi');
+  await page.getByRole('searchbox').fill('Delhi');
   await page.getByRole('button', { name: /^Search$/ }).click();
 
-  const option = page.getByRole('button', { name: /Delhi/ });
+  const option = page.getByRole('listitem').getByRole('button', { name: /Delhi/ }).first();
   await expect(option).toBeVisible();
 
   // The payload was sanitised server-side: it renders as text, and no script ran.
@@ -71,9 +71,9 @@ test('search a city, see AQI, generate a plan via the labelled fallback', async 
   // labelled sample fallback. Network access is not guaranteed in CI.
   await page.goto('/');
 
-  await page.getByLabel(/Where are you today\?/i).fill('Delhi');
+  await page.getByRole('searchbox').fill('Delhi');
   await page.getByRole('button', { name: /^Search$/ }).click();
-  await page.getByRole('button', { name: /Delhi/ }).click();
+  await page.getByRole('listitem').getByRole('button', { name: /Delhi/ }).first().click();
 
   // Step 2 is shown and the AQI hero appears (live or clearly labelled sample).
   await expect(page.getByRole('heading', { name: 'Quick profile' })).toBeVisible();
@@ -82,7 +82,9 @@ test('search a city, see AQI, generate a plan via the labelled fallback', async 
   await page.getByRole('button', { name: /Build my plan/ }).click();
 
   // Step 3: the fallback banner must be explicit, never silent.
-  await expect(page.getByText(/built-in rule-based plan/i)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/built-in rule-based plan/i).first()).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByText(/Direct impact/i).first()).toBeVisible();
   await expect(page.getByText(/not medical advice/i).first()).toBeVisible();
 
@@ -123,7 +125,7 @@ test('security headers are present on the document', async ({ page, baseURL }) =
   const headers = response.headers();
 
   expect(headers['x-content-type-options']).toBe('nosniff');
-  expect(headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  expect(headers['referrer-policy']).toBe('no-referrer');
   expect(headers['x-frame-options']).toBe('DENY');
   expect(headers['permissions-policy']).toContain('geolocation=(self)');
 
@@ -139,4 +141,38 @@ test('the service worker never caches API responses', async ({ request, baseURL 
   const body = await response.text();
   expect(body).toContain("/api/");
   expect(body).toContain('pathname.startsWith');
+});
+
+test('the service worker registers and stores no API data in Cache Storage', async ({
+  page,
+  baseURL,
+}) => {
+  await page.goto('/');
+
+  // Registration succeeds: an installability prerequisite.
+  const scope = await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    return registration.scope;
+  });
+  expect(scope).toContain(new URL(baseURL ?? 'http://127.0.0.1').host);
+
+  // Drive a real /api/ request from the page, which the worker must ignore.
+  const apiStatus = await page.evaluate(async () => {
+    const response = await fetch('/api/air?lat=19.08&lon=72.88');
+    return response.status;
+  });
+  expect([200, 502]).toContain(apiStatus);
+
+  const apiInCache = await page.evaluate(async () => {
+    const names = await caches.keys();
+    for (const name of names) {
+      const cache = await caches.open(name);
+      const requests = await cache.keys();
+      if (requests.some((entry) => new URL(entry.url).pathname.startsWith('/api/'))) {
+        return `${name}:${requests.map((entry) => entry.url).join(',')}`;
+      }
+    }
+    return null;
+  });
+  expect(apiInCache).toBeNull();
 });

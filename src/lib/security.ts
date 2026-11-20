@@ -42,7 +42,9 @@ export function securityHeaders(isProduction: boolean): SecurityHeaderMap {
   const headers: SecurityHeaderMap = {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
-    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    // No referrer at all: the only outbound navigation is a wa.me share link,
+    // which has no need to learn this app's origin.
+    'Referrer-Policy': 'no-referrer',
     'Permissions-Policy': [
       'geolocation=(self)',
       'camera=()',
@@ -52,7 +54,9 @@ export function securityHeaders(isProduction: boolean): SecurityHeaderMap {
       'magnetometer=()',
       'gyroscope=()',
       'accelerometer=()',
-      'interest-cohort=()',
+      // NOTE: 'interest-cohort' is deliberately absent. FLoC is retired and
+      // Chrome rejects the unrecognised token with a console error, so keeping
+      // it would add noise without adding protection.
     ].join(', '),
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',

@@ -1,9 +1,8 @@
 import type { DerivedIndices } from './air';
-import { getAirSnapshot } from './air';
 import { DEFAULT_DAILY_LLM_CAP } from './constants';
 import { medicalAlertFor, buildFallbackPlan, type FallbackReason } from './fallbackPlan';
 import { LlmError, callGemini, parseJsonText } from './gemini';
-import { sanitizePlan, looksLikeMedicalAdvice, scriptMatches, sanitizeText } from './sanitize';
+import { sanitizePlan, looksLikeMedicalAdvice, scriptMatches } from './sanitize';
 import { llmPlanSchema } from './schemas';
 import { SYSTEM_INSTRUCTION, buildUserPrompt } from './prompt';
 import { consumeDailyLlmQuota } from './rateLimit';
@@ -193,14 +192,3 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
 
   return { plan: fallback(args, lastReason), usedLlm: false, reason: lastReason };
 }
-
-/** Shared by /api/plan: refetch air server-side from rounded coordinates. */
-export async function snapshotForPlan(
-  lat: number,
-  lon: number,
-): Promise<{ snapshot: AirSnapshot }> {
-  const snapshot = await getAirSnapshot(lat, lon);
-  return { snapshot };
-}
-
-export { sanitizeText };

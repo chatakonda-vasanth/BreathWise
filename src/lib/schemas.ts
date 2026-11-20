@@ -1,5 +1,6 @@
+import './zod-jitless';
 import { z } from 'zod';
-import { MAX_CITY_QUERY, MAX_LOCATION_LABEL, MAX_PLAN_STRING } from './constants';
+import { MAX_CITY_QUERY, MAX_PLAN_STRING } from './constants';
 
 /**
  * Every route parses its input with a strict schema: unknown fields are
@@ -94,8 +95,11 @@ export const planRequestSchema = z
     profile: profileSchema,
     lat: z.number().min(-90).max(90),
     lon: z.number().min(-180).max(180),
-    /** Display-only city label. Never inserted into the prompt. */
-    locationLabel: z.string().max(MAX_LOCATION_LABEL).optional(),
+    /**
+     * Deliberately no location label / free-text field: the route needs only
+     * coordinates (to fetch air data server-side) and the enumerated profile.
+     * An accepted-but-unused text field would be needless attack surface.
+     */
     /** Explicit demo mode: use the clearly labelled sample snapshot server-side. */
     sample: z.boolean().optional(),
   })

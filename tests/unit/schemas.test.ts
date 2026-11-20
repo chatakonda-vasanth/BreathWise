@@ -77,13 +77,13 @@ describe('planRequestSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('caps the display-only location label and rejects unknown keys', () => {
+  it('rejects any free-text field, including a location label', () => {
     expect(
       planRequestSchema.safeParse({
         profile: PROFILE,
         lat: 0,
         lon: 0,
-        locationLabel: 'x'.repeat(81),
+        locationLabel: 'Delhi',
       }).success,
     ).toBe(false);
 

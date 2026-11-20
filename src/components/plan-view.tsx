@@ -198,7 +198,9 @@ export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
       <div className="card mt-3">
         <h2 className="text-xl font-bold">{plan.headline}</h2>
         <p className="hint mt-1">
-          {plan.generatedBy === 'llm' ? t(lang, 'planSourceLlm') : t(lang, 'fallbackShown')}
+          {plan.generatedBy === 'llm'
+            ? t(lang, 'planSourceLlm')
+            : t(lang, 'planSourceFallback')}
         </p>
       </div>
 

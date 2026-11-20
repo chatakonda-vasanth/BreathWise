@@ -32,7 +32,7 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
 };
 
 export function errorResponse(code: ErrorCode, extraHeaders?: HeadersInit): Response {
-  const body: { error: ErrorCode; message: string; retryAfter?: number } = {
+  const body: { error: ErrorCode; message: string } = {
     error: code,
     message: ERROR_MESSAGES[code],
   };

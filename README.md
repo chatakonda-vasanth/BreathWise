@@ -157,11 +157,16 @@ also for **non-commercial use** (10k calls/day, 5k/hour, 600/minute).
    `typescript-eslint` (used by `eslint-config-next`) does not support it yet and
    ESLint refuses to run. Pinning to the newest version the toolchain supports
    keeps `lint` and `typecheck` both green; see `SECURITY.md` → limitations.
+   There is a Dependabot rule ignoring TS major bumps for the same reason.
 10. **Theme choice is not persisted.** Persisting it would mean writing to
     storage for no product benefit, so it lives in memory and defaults to the OS
     preference.
 11. **Upstash limiter calls are bounded at 1.5 s.** A hung limiter cannot hold a
     request open; the timeout is treated as "unreachable".
+12. **zod runs jitless (`z.config({ jitless: true })`).** By default zod probes
+    `Function("")`, which a strict `script-src` blocks — it degrades gracefully,
+    but it logs a CSP violation and is the kind of runtime code generation the
+    policy exists to prevent. Disabling JIT removes it everywhere.
 
 ---
 

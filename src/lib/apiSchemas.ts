@@ -1,3 +1,4 @@
+import './zod-jitless';
 import { z } from 'zod';
 
 /** Response contracts, validated on the client too (never trust a response). */

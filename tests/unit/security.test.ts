@@ -44,7 +44,7 @@ describe('security headers', () => {
   it('sets the mandatory hardening headers', () => {
     const headers = securityHeaders(true);
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
-    expect(headers['Referrer-Policy']).toBe('strict-origin-when-cross-origin');
+    expect(headers['Referrer-Policy']).toBe('no-referrer');
     expect(headers['X-Frame-Options']).toBe('DENY');
     expect(headers['Cross-Origin-Opener-Policy']).toBe('same-origin');
     expect(headers['Cross-Origin-Resource-Policy']).toBe('same-origin');
@@ -57,7 +57,9 @@ describe('security headers', () => {
     expect(policy).toContain('camera=()');
     expect(policy).toContain('microphone=()');
     expect(policy).toContain('payment=()');
-    expect(policy).toContain('interest-cohort=()');
+    expect(policy).toContain('usb=()');
+    // Retired/unknown tokens make Chrome log an error, so they must not appear.
+    expect(policy).not.toContain('interest-cohort');
   });
 
   it('omits HSTS outside production so localhost is not pinned', () => {

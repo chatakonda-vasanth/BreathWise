@@ -64,7 +64,6 @@ export async function requestPlan(input: {
   profile: Profile;
   lat: number;
   lon: number;
-  locationLabel?: string;
   sample?: boolean;
 }) {
   const payload = await requestJson('/api/plan', {

@@ -22,7 +22,6 @@ export const MAX_BODY_BYTES = 8 * 1024;
 
 /** Field caps. */
 export const MAX_CITY_QUERY = 60;
-export const MAX_LOCATION_LABEL = 80;
 export const MAX_PLAN_STRING = 600;
 
 /** Rate limits: requests per window (ms) per client IP. */

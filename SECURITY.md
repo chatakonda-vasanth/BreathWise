@@ -35,7 +35,7 @@ third party directly — `connect-src 'self'`.
 | **S**poofing | Forged client IP to dodge rate limits | IP comes only from `x-vercel-forwarded-for` / `x-real-ip`; rightmost `x-forwarded-for` hop only; unparseable → shared bucket (`src/lib/http.ts`). |
 | Spoofing | Cross-site form/script POSTing to `/api/plan` | `Origin` **required** on POST and compared to `APP_ORIGIN`/`Host`; `sec-fetch-site` must be same-origin; no CORS headers are ever emitted; `OPTIONS` → 403. |
 | **T**ampering | Passing invented air data to the model | `/api/plan` accepts only profile + coordinates; the snapshot is re-fetched server-side. |
-| Tampering | Prompt injection via city names, profile or upstream data | No free-text field exists; all schemas are `strictObject` (unknown keys rejected); prompt data blocks are delimited and labelled untrusted; every upstream string is reduced to a strict character set before entering the prompt. |
+| Tampering | Prompt injection via city names, profile or upstream data | No free-text field exists anywhere in the request path (an earlier draft accepted a display-only `locationLabel`; it was removed during self-audit as unused attack surface); all schemas are `strictObject` (unknown keys rejected); prompt data blocks are delimited and labelled untrusted; every upstream string is reduced to a strict character set before entering the prompt. |
 | Tampering | XSS via model output or place names | React text nodes only, `react/no-danger` lint rule, no `dangerouslySetInnerHTML` anywhere, `sanitizeText` strips tags/scripts/markdown link targets, CSP with nonces as backstop. |
 | Tampering | Malicious model output (medication/dosage/diagnosis) | `looksLikeMedicalAdvice` rejects the whole response → deterministic fallback; medical banner is computed server-side and never taken from the model. |
 | Tampering | Service worker poisoning the app | SW caches only same-origin GETs outside `/api/`, only `response.ok && type === 'basic'`, and ignores requests with `Authorization`; cache version bumped on change. |
@@ -43,11 +43,12 @@ third party directly — `connect-src 'self'`.
 | **I**nformation disclosure | Key leaking into the browser bundle | Secrets are read only via `process.env` inside route handlers; nothing is `NEXT_PUBLIC_`; `scripts/check-client-bundles.mjs` fails the build if a key value, key shape or server-only variable name appears under `.next/static`. |
 | Information disclosure | Stack traces / upstream error bodies | Every route returns one of eight generic codes; upstream bodies are never forwarded; `logEvent` accepts no free-form data. |
 | Information disclosure | Location logging | Coordinates are rounded in `normaliseCoords` before any use, never logged, never persisted; the prompt excludes them. |
-| Information disclosure | Clickjacking / referrer leakage | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`. |
+| Information disclosure | Clickjacking / referrer leakage | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (the only external navigation is a `wa.me` share link, which needs no referrer). |
 | **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s; **fail closed** on `/api/plan` when Upstash is unreachable. |
 | DoS | Oversized bodies | `readJsonBody` rejects on declared `Content-Length` and on the actual byte length (8 KiB cap). |
 | DoS | Slowloris-style outbound hangs | `AbortSignal.timeout(5000)` for Open-Meteo, 20 s for the model, 1.5 s for Redis. |
 | **E**levation of privilege | SSRF to cloud metadata endpoints | Hosts are constants (`air-quality-api.open-meteo.com`, `geocoding-api.open-meteo.com`, `generativelanguage.googleapis.com`); query values are validated numbers; `redirect: 'error'`; the model has no tools (`functionCallingConfig.mode = 'NONE'`). |
+| Elevation of privilege | Runtime code generation in the browser | `z.config({ jitless: true })` (`src/lib/zod-jitless.ts`) so zod never probes with `Function("")`; no `eval`/`new Function` in app code; CSP forbids both. |
 | Elevation of privilege | Reaching internal services via user-supplied URL | No endpoint accepts a URL. The `airQuerySchema`/`geocodeQuerySchema` reject unknown query keys, so `?url=` is a 400. |
 
 ## Header policy
@@ -63,7 +64,7 @@ manifest-src 'self'; worker-src 'self'; media-src 'none';
 object-src 'none'; frame-src 'none'; frame-ancestors 'none';
 base-uri 'self'; form-action 'self'; upgrade-insecure-requests
 HSTS (prod), X-Content-Type-Options: nosniff, X-Frame-Options: DENY,
-Referrer-Policy, Permissions-Policy (geolocation=(self), everything else off),
+Referrer-Policy: no-referrer, Permissions-Policy (geolocation=(self), everything else off),
 Cross-Origin-Opener-Policy: same-origin, Cross-Origin-Resource-Policy: same-origin
 ```
 
@@ -95,6 +96,24 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | Stale/dangerous AQI maths | Pure functions, unit tested | `tests/unit/aqi.test.ts`, `tests/unit/naqi.test.ts` |
 | Unsafe headers | Pure builder, unit tested | `tests/unit/security.test.ts`, e2e header assertions |
 
+## Self-audit findings and fixes
+
+The phase-3 audit reviewed the whole codebase against this file. Four findings
+were found and fixed:
+
+| # | Finding | Fix | Proof |
+| --- | --- | --- | --- |
+| 1 | zod's JIT probe called `Function("")`, which a strict `script-src` blocked. It was caught, but Chrome logged a CSP violation and Lighthouse's `inspector-issues` audit failed (best-practices 96). | Enable zod's jitless mode globally so no runtime code generation is attempted on server or client. | CDP `Audits.issueAdded` count = 0 after a full search + plan interaction; Lighthouse best-practices 100. |
+| 2 | `/api/plan` accepted a display-only `locationLabel` string (up to 80 chars) that the route never used — unused free-text surface in a route whose whole design is "no free text". | Removed from the schema, the client type, the constant table, and added a test that any `locationLabel` is rejected as an unknown key. | `tests/unit/schemas.test.ts` → "rejects any free-text field, including a location label". |
+| 3 | `Referrer-Policy: strict-origin-when-cross-origin` still sends the app origin to `wa.me` on share. | Changed to `no-referrer`; the WhatsApp share link needs no referrer. | `tests/unit/security.test.ts`, e2e header assertion, `curl -I` output. |
+| 4 | `errorResponse` declared an unused `retryAfter` body field (dead contract). | Removed; `Retry-After` remains a header, which is where it belongs. | `npm run typecheck`, `npm run lint`. |
+
+Verified clean during the same pass (no findings): no `dangerouslySetInnerHTML`,
+no `innerHTML`, no `eval`/`new Function`, no `localStorage`/`sessionStorage`/
+`document.cookie`, no `NEXT_PUBLIC_`, no `Access-Control-Allow-*` header, and only
+two outbound `fetch` call sites — both against hard-coded hosts with
+`redirect: 'error'`.
+
 ## Auditing this project
 
 ```bash
@@ -123,13 +142,24 @@ npm run audit && npm run secrets && npm run check:bundles
    console during development only.
 5. **No SRI on framework chunks.** Next's SRI support is still experimental; the
    nonce + `strict-dynamic` policy is used instead.
-6. **Lighthouse's PWA category no longer exists** (removed in Lighthouse 12), so
-   installability is verified by inspecting the manifest/SW and Chrome's
-   installability criteria rather than a score. Accessibility is measured.
+6. **Lighthouse's PWA category no longer exists** (removed in Lighthouse 12):
+   the 13.x install reports only accessibility, best-practices, performance and
+   SEO. Installability is therefore verified structurally — manifest served with
+   `application/manifest+json`, 192/512/maskable icons served, service worker
+   registers and reaches `ready`, scope = origin — plus an e2e test asserting
+   Cache Storage holds no `/api/` entries. Chrome's install prompt was not driven
+   manually.
 7. **Geolocation requires a secure context.** Over plain HTTP the browser blocks
    it; city search is the documented fallback.
-8. **TypeScript is pinned to 6.x** because `typescript-eslint` does not support
+
+8. **Initial client JS is 221.5 KiB gzipped**, above the optional 150 KB
+   low-bandwidth target. Low-bandwidth mode itself works (charts are opt-in and
+   the plan is text-first), but the React 19 + Next 16 runtime plus client-side
+   zod validation dominate the budget. Removing client-side response validation
+   would cut roughly 20 KB at the cost of a real defence-in-depth control, which
+   was judged a bad trade.
+9. **TypeScript is pinned to 6.x** because `typescript-eslint` does not support
    7.0 yet; `tsc` 7 was verified to typecheck the project, but ESLint would not
    start, so the pinned version keeps the whole gate runnable.
-9. **The sample snapshot is fabricated** and only used behind an explicit label;
-   it must never be mistaken for measurements.
+10. **The sample snapshot is fabricated** and only used behind an explicit
+    label; it must never be mistaken for measurements.
