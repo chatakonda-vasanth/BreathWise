@@ -34,6 +34,21 @@ export function getModelId(): string {
   return DEFAULT_GEMINI_MODEL;
 }
 
+/**
+ * Reasoning control, verified against ai.google.dev/gemini-api/docs/thinking:
+ * Gemini 3 and later take `thinkingConfig.thinkingLevel` (`low` is supported on
+ * every 3.x flash model), while sending it to a 2.5-or-earlier model is an
+ * error, and `thinkingBudget` is deprecated for 3+. So ask for low thinking only
+ * on 3+/4+ models; anything else gets no thinkingConfig at all.
+ *
+ * Measured on the real outline prompt: ~17 s at the model default vs ~7 s at
+ * `low`, which is what keeps this route inside its 20 s budget.
+ */
+export function thinkingConfigFor(model: string): Record<string, unknown> {
+  const major = Number(/^gemini-(\d+)/i.exec(model)?.[1] ?? '0');
+  return major >= 3 ? { thinkingConfig: { thinkingLevel: 'low' } } : {};
+}
+
 const STRING = (description: string) => ({ type: 'STRING', description });
 
 /** OpenAPI-subset response schema; keeps the model on the exact shape we parse. */
@@ -152,6 +167,7 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
       maxOutputTokens: 4096,
       responseMimeType: 'application/json',
       responseSchema: RESPONSE_SCHEMA,
+      ...thinkingConfigFor(model),
     },
     // No tools, no code execution, no grounding: the model can only answer.
     toolConfig: { functionCallingConfig: { mode: 'NONE' } },

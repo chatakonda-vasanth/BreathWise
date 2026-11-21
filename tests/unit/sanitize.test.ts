@@ -51,6 +51,20 @@ describe('medical safety guard', () => {
     expect(looksLikeMedicalAdvice('Wear a fitted N95 mask outdoors.')).toBe(false);
     expect(looksLikeMedicalAdvice('Seek medical help if breathing worsens.')).toBe(false);
   });
+
+  // Regression: µg/m³ is a concentration, not a dose. Matching it rejected every
+  // real plan (which quotes PM2.5) and served the fallback instead.
+  it('does not treat pollution concentrations as dosages', () => {
+    expect(looksLikeMedicalAdvice('PM2.5 is 111 µg/m³ this afternoon.')).toBe(false);
+    expect(looksLikeMedicalAdvice('It settles to 66.8–70.5 µg/m3 tonight.')).toBe(false);
+    expect(looksLikeMedicalAdvice('Suspended dust near 30 mg/m³ on the road.')).toBe(false);
+    expect(looksLikeMedicalAdvice('PM2.5 of 120 µg per cubic metre')).toBe(false);
+  });
+
+  it('still flags the same unit when it is a dose', () => {
+    expect(looksLikeMedicalAdvice('Take 500 mg twice a day')).toBe(true);
+    expect(looksLikeMedicalAdvice('Give 5 ml of syrup')).toBe(true);
+  });
 });
 
 describe('script matching', () => {

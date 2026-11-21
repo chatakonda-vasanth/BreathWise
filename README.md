@@ -50,7 +50,7 @@ bundle by definition.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | no | Server-side LLM key. Unset → fallback plans only. |
-| `GEMINI_MODEL` | no | Model id, default `gemini-2.5-flash`. Changing models needs no code change. |
+| `GEMINI_MODEL` | no | Model id, default `gemini-3.5-flash`. Changing models needs no code change. |
 | `LLM_DISABLED` | no | `true` → kill switch; no outbound AI call at all. |
 | `DAILY_LLM_CAP` | no | Daily generation cap, default 200 (counter in Upstash). |
 | `UPSTASH_REDIS_REST_URL` | prod | Distributed rate limiting. |

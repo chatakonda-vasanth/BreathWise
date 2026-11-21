@@ -34,6 +34,6 @@ export const RATE_LIMITS = {
 /** Default daily LLM cap when DAILY_LLM_CAP is unset/invalid. */
 export const DEFAULT_DAILY_LLM_CAP = 200;
 /** Default model when GEMINI_MODEL is unset. Overridable without a code change. */
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
 export const LANGUAGES = ['en', 'hi', 'te'] as const;

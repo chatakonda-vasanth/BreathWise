@@ -42,7 +42,10 @@ export function containsMarkup(value: string): boolean {
  * deterministic fallback is served instead.
  */
 const MEDICAL_PATTERNS: readonly RegExp[] = [
-  /\b\d+(?:\.\d+)?\s?(?:mg|mcg|µg|ml|iu)\b/i,
+  // Dosage units only. A concentration ("111 µg/m³", "30 mg per cubic metre")
+  // is air data, not a dose: without the lookahead, every real plan that quotes
+  // PM2.5 was rejected as medical content and silently replaced by the fallback.
+  /\b\d+(?:\.\d+)?\s?(?:mg|mcg|µg|ml|iu)\b(?!\s*(?:\/\s*m\d?|per\s+(?:cubic|m3|m\u00b3)))/i,
   /\b(?:dosage|dose)\b/i,
   /\bprescri(?:be|ption|bed)\b/i,
   /\b(?:take|swallow)\s+(?:one|two|three|\d+)\s+(?:tablet|pill|puff|capsule)s?\b/i,
