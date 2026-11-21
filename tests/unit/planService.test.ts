@@ -16,6 +16,7 @@ const ENV_KEYS = [
   'GEMINI_API_KEY',
   'GEMINI_MODEL',
   'LLM_DISABLED',
+  'LLM_ATTEMPT_TIMEOUT_MS',
   'DAILY_LLM_CAP',
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
@@ -164,6 +165,50 @@ describe('fallback paths', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.reason).toBe('timeout');
     expect(result.plan.generatedBy).toBe('fallback');
+  });
+
+  it('does not call the model at all when the route budget is already gone', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await generatePlan({ ...args('en'), budgetMs: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.reason).toBe('timeout');
+    expect(result.plan.generatedBy).toBe('fallback');
+  });
+
+  it('skips the retry when the first attempt used more than half the budget', async () => {
+    process.env.LLM_ATTEMPT_TIMEOUT_MS = '500';
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      return new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json at all' }] } }] }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    // Half of a 200 ms budget is 100 ms, so a 120 ms answer leaves no room.
+    const result = await generatePlan({ ...args('en'), budgetMs: 200 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.reason).toBe('invalid_output');
+    expect(result.plan.generatedBy).toBe('fallback');
+  });
+
+  it('retries while the first attempt stays inside half the budget', async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json at all' }] } }] }),
+          { status: 200 },
+        ),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await generatePlan({ ...args('en'), budgetMs: 2000 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(result.reason).toBe('invalid_output');
   });
 
   it('retries once on invalid JSON, then falls back', async () => {

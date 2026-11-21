@@ -35,6 +35,9 @@ const DEFAULT_PROFILE: Profile = {
 type Step = 1 | 2 | 3;
 type ThemeChoice = 'auto' | 'light' | 'dark';
 
+/** How long before the plan spinner admits that generation is slow. */
+const SLOW_PLAN_MS = 5000;
+
 function sampleResponse(): AirResponse {
   const air = createSampleSnapshot();
   return { air, indices: deriveIndices(air) };
@@ -55,6 +58,7 @@ export function AppShell() {
 
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
+  const [planSlow, setPlanSlow] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,8 +109,12 @@ export function AppShell() {
   async function handleSubmitPlan() {
     if (!location) return;
     setPlanLoading(true);
+    setPlanSlow(false);
     setPlanError(null);
     setPlan(null);
+    // A real generation can take 10-20 s; after 5 s say so instead of leaving a
+    // silent spinner. The timer is cleared with the request.
+    const slowTimer = setTimeout(() => setPlanSlow(true), SLOW_PLAN_MS);
     try {
       const response = await requestPlan({
         profile: { ...profile, language: lang },
@@ -126,6 +134,8 @@ export function AppShell() {
             : t(lang, 'planFailed'),
       );
     } finally {
+      clearTimeout(slowTimer);
+      setPlanSlow(false);
       setPlanLoading(false);
     }
   }
@@ -279,8 +289,8 @@ export function AppShell() {
                 onBack={() => setStep(1)}
               />
               {planLoading ? (
-                <p className="mt-3 hint" role="status">
-                  {t(lang, 'generating')}
+                <p className="mt-3 hint" role="status" aria-live="polite">
+                  {planSlow ? t(lang, 'generatingSlow') : t(lang, 'generating')}
                 </p>
               ) : null}
               {planError ? (

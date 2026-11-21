@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { deriveIndices, getAirSnapshot, UpstreamError } from '@/lib/air';
 import { createSampleSnapshot } from '@/lib/sampleData';
-import { MAX_BODY_BYTES, RATE_LIMITS } from '@/lib/constants';
+import {
+  FUNCTION_MAX_DURATION_S,
+  MAX_BODY_BYTES,
+  RATE_LIMITS,
+  ROUTE_RESPONSE_MARGIN_MS,
+} from '@/lib/constants';
 import {
   checkOrigin,
   errorResponse,
@@ -16,7 +21,13 @@ import { planRequestSchema } from '@/lib/schemas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+/**
+ * Explicit platform budget. Vercel's Hobby maximum is 300 s; this route needs a
+ * small fraction of it and the LLM is budgeted to finish well inside it (see
+ * constants.ts and the README), so a slow model returns the labelled fallback
+ * instead of a 504 from the platform.
+ */
+export const maxDuration = FUNCTION_MAX_DURATION_S;
 
 /**
  * POST /api/plan
@@ -110,6 +121,11 @@ export async function POST(request: NextRequest): Promise<Response> {
     severity: derived.severity,
     naqi: derived.naqi,
     language: profile.language,
+    // Hand the model only what is left of the function's wall clock, minus the
+    // margin needed to write the response. generatePlan clamps and never starts
+    // an attempt it cannot finish before the deadline.
+    budgetMs:
+      FUNCTION_MAX_DURATION_S * 1000 - ROUTE_RESPONSE_MARGIN_MS - (Date.now() - started),
   });
 
   logEvent({

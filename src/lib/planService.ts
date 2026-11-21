@@ -1,5 +1,10 @@
 import type { DerivedIndices } from './air';
-import { DEFAULT_DAILY_LLM_CAP } from './constants';
+import {
+  DEFAULT_DAILY_LLM_CAP,
+  LLM_ATTEMPT_TIMEOUT_MS,
+  LLM_RETRY_MIN_REMAINING_MS,
+  LLM_TOTAL_BUDGET_MS,
+} from './constants';
 import { medicalAlertFor, buildFallbackPlan, type FallbackReason } from './fallbackPlan';
 import { LlmError, callGemini, parseJsonText } from './gemini';
 import { sanitizePlan, looksLikeMedicalAdvice, scriptMatches } from './sanitize';
@@ -24,6 +29,12 @@ export interface GeneratePlanArgs {
   severity: SeverityBand;
   naqi: NaqiResult;
   language: Language;
+  /**
+   * Milliseconds left before the route must stop talking to the model (its
+   * wall-clock deadline minus the response margin). Defaults to the full LLM
+   * budget. Clamped, and a value <= 0 skips the model entirely.
+   */
+  budgetMs?: number;
 }
 
 function dailyCap(): number {
@@ -33,6 +44,17 @@ function dailyCap(): number {
 
 export function llmDisabled(): boolean {
   return process.env.LLM_DISABLED?.trim().toLowerCase() === 'true';
+}
+
+/**
+ * Per-attempt cap. An operator (or a test) can lower it with
+ * `LLM_ATTEMPT_TIMEOUT_MS`; it can never be raised above the built-in value, so
+ * no configuration can make one attempt outlive the function budget.
+ */
+export function attemptTimeoutMs(): number {
+  const parsed = Number(process.env.LLM_ATTEMPT_TIMEOUT_MS ?? '');
+  if (!Number.isFinite(parsed) || parsed <= 0) return LLM_ATTEMPT_TIMEOUT_MS;
+  return Math.max(1, Math.min(Math.floor(parsed), LLM_ATTEMPT_TIMEOUT_MS));
 }
 
 function fallback(
@@ -158,11 +180,37 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
     severity: args.severity,
   });
 
-  let lastReason: FallbackReason = 'unknown';
+  // Wall-clock budget shared by every attempt. No attempt is started that could
+  // run past the deadline, and a first attempt slower than half the budget ends
+  // the loop: two attempts would no longer both fit, so the caller gets the
+  // labelled fallback instead of a platform timeout.
+  const budgetMs = Math.max(0, Math.min(args.budgetMs ?? LLM_TOTAL_BUDGET_MS, LLM_TOTAL_BUDGET_MS));
+  const deadline = Date.now() + budgetMs;
+  const retryThresholdMs = budgetMs / 2;
+  // A retry needs a meaningful slice of time left; the floor never eats more
+  // than a quarter of a short budget, so a smaller configured budget still
+  // retries proportionally instead of never.
+  const minRetryMs = Math.min(LLM_RETRY_MIN_REMAINING_MS, budgetMs / 4);
+  const attemptCapMs = attemptTimeoutMs();
+
+  // 'timeout' is the honest reason if the budget is gone before any attempt can
+  // start (for example after a slow air fetch).
+  let lastReason: FallbackReason = 'timeout';
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remainingMs = deadline - Date.now();
+    // The first attempt runs with whatever is left (the timeout below is capped
+    // by it); a retry needs enough room to be worth starting.
+    if (remainingMs < (attempt === 0 ? 1 : minRetryMs)) break;
+
+    const attemptStarted = Date.now();
     try {
-      const raw = await callGemini({ system, user, apiKey });
+      const raw = await callGemini({
+        system,
+        user,
+        apiKey,
+        timeoutMs: Math.min(attemptCapMs, remainingMs),
+      });
       const outcome = validateModelOutput(raw, args);
       if (outcome.ok && outcome.plan) {
         return { plan: outcome.plan, usedLlm: true };
@@ -196,6 +244,11 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
         lastReason = 'unknown';
       }
     }
+
+    // Budget check for the retry: only a first attempt that finished inside half
+    // the budget leaves room for a second one that still ends before the
+    // deadline. A slower first attempt falls back immediately.
+    if (Date.now() - attemptStarted >= retryThresholdMs) break;
   }
 
   return { plan: fallback(args, lastReason), usedLlm: false, reason: lastReason };

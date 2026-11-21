@@ -1,4 +1,4 @@
-import { DEFAULT_GEMINI_MODEL, GEMINI_HOST, LLM_TIMEOUT_MS } from './constants';
+import { DEFAULT_GEMINI_MODEL, GEMINI_HOST, LLM_ATTEMPT_TIMEOUT_MS } from './constants';
 
 /**
  * Gemini generateContent client.
@@ -184,7 +184,7 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
       body: JSON.stringify(body),
       redirect: 'error',
       cache: 'no-store',
-      signal: AbortSignal.timeout(args.timeoutMs ?? LLM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(args.timeoutMs ?? LLM_ATTEMPT_TIMEOUT_MS),
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'TimeoutError') {
