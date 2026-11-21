@@ -12,7 +12,13 @@ export const GEMINI_HOST = 'https://generativelanguage.googleapis.com';
 /** Outbound HTTP timeout (ms) for every third-party call. */
 export const UPSTREAM_TIMEOUT_MS = 5000;
 /** LLM gets a longer budget but still bounded. */
-export const LLM_TIMEOUT_MS = 20000;
+/**
+ * Measured against the configured model: 10-23 s for the full outline (slow
+ * first call, faster once warm), so 40 s leaves headroom without letting one
+ * request hang for long. Timeouts are not retried (see planService), otherwise a
+ * slow model would hold the route for 2x this budget.
+ */
+export const LLM_TIMEOUT_MS = 40000;
 
 /** Air snapshot cache TTL (10 min, inside the requested 10–15 min window). */
 export const AIR_CACHE_TTL_MS = 10 * 60 * 1000;

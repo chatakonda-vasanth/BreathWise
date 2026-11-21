@@ -182,8 +182,16 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
                 : error.code === 'invalid_output'
                   ? 'invalid_output'
                   : 'upstream_error';
-        // Transport failures are retried once; an invalid key will not improve.
-        if (error.code === 'no_api_key') break;
+        // Transport failures are retried once; a timeout, an invalid key or a
+        // rate limit will not improve by immediately asking again, and a retry
+        // after a timeout would hold the request for twice the LLM budget.
+        if (
+          error.code === 'no_api_key' ||
+          error.code === 'timeout' ||
+          error.code === 'rate_limited'
+        ) {
+          break;
+        }
       } else {
         lastReason = 'unknown';
       }

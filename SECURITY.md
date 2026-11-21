@@ -46,7 +46,7 @@ third party directly — `connect-src 'self'`.
 | Information disclosure | Clickjacking / referrer leakage | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (the only external navigation is a `wa.me` share link, which needs no referrer). |
 | **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s; **fail closed** on `/api/plan` when Upstash is unreachable. |
 | DoS | Oversized bodies | `readJsonBody` rejects on declared `Content-Length` and on the actual byte length (8 KiB cap). |
-| DoS | Slowloris-style outbound hangs | `AbortSignal.timeout(5000)` for Open-Meteo, 20 s for the model, 1.5 s for Redis. |
+| DoS | Slowloris-style outbound hangs | `AbortSignal.timeout(5000)` for Open-Meteo, 40 s for the model (a timeout is not retried, so one request cannot hang for 2x the budget), 1.5 s for Redis. |
 | **E**levation of privilege | SSRF to cloud metadata endpoints | Hosts are constants (`air-quality-api.open-meteo.com`, `geocoding-api.open-meteo.com`, `generativelanguage.googleapis.com`); query values are validated numbers; `redirect: 'error'`; the model has no tools (`functionCallingConfig.mode = 'NONE'`). |
 | Elevation of privilege | Runtime code generation in the browser | `z.config({ jitless: true })` (`src/lib/zod-jitless.ts`) so zod never probes with `Function("")`; no `eval`/`new Function` in app code; CSP forbids both. |
 | Elevation of privilege | Reaching internal services via user-supplied URL | No endpoint accepts a URL. The `airQuerySchema`/`geocodeQuerySchema` reject unknown query keys, so `?url=` is a 400. |

@@ -155,6 +155,17 @@ describe('fallback paths', () => {
     expect(result.plan.generatedBy).toBe('fallback');
   });
 
+  it('does not retry a timeout (a slow model must not double the wait)', async () => {
+    const timeout = Object.assign(new Error('aborted'), { name: 'TimeoutError' });
+    const fetchMock = vi.fn().mockRejectedValue(timeout);
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await generatePlan(args('en'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.reason).toBe('timeout');
+    expect(result.plan.generatedBy).toBe('fallback');
+  });
+
   it('retries once on invalid JSON, then falls back', async () => {
     // A fresh Response per call: a Response body can only be read once.
     const fetchMock = vi.fn().mockImplementation(() =>
