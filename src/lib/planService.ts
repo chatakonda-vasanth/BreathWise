@@ -35,6 +35,12 @@ export interface GeneratePlanArgs {
    * budget. Clamped, and a value <= 0 skips the model entirely.
    */
   budgetMs?: number;
+  /**
+   * Return this labelled fallback without touching the model or the daily
+   * quota. Used when a precondition fails (for example, no shared rate
+   * limiter), so the route can still answer with a real plan.
+   */
+  fallbackOnly?: FallbackReason;
 }
 
 function dailyCap(): number {
@@ -155,6 +161,14 @@ export interface PlanResult {
 }
 
 export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> {
+  if (args.fallbackOnly) {
+    return {
+      plan: fallback(args, args.fallbackOnly),
+      usedLlm: false,
+      reason: args.fallbackOnly,
+    };
+  }
+
   if (llmDisabled()) {
     return { plan: fallback(args, 'llm_disabled'), usedLlm: false, reason: 'llm_disabled' };
   }

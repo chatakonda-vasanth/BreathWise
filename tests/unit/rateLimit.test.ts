@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MemoryLimiter,
   __resetRateLimitState,
@@ -6,10 +6,7 @@ import {
   enforceRateLimit,
 } from '@/lib/rateLimit';
 
-const ENV_KEYS = [
-  'UPSTASH_REDIS_REST_URL',
-  'UPSTASH_REDIS_REST_TOKEN',
-] as const;
+const ENV_KEYS = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'] as const;
 
 let saved: Record<string, string | undefined> = {};
 
@@ -19,14 +16,17 @@ beforeEach(() => {
     saved[key] = process.env[key];
     delete process.env[key];
   }
+  vi.stubEnv('NODE_ENV', 'test');
   __resetRateLimitState();
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const key of ENV_KEYS) {
     if (saved[key] === undefined) delete process.env[key];
     else process.env[key] = saved[key];
   }
+  vi.restoreAllMocks();
   __resetRateLimitState();
 });
 
@@ -54,56 +54,79 @@ describe('MemoryLimiter', () => {
   });
 });
 
-describe('enforceRateLimit', () => {
-  it('uses the in-memory limiter and reports degraded when Upstash is absent', async () => {
-    const first = await enforceRateLimit({
-      name: 'test-air',
-      limit: 2,
-      windowMs: 60_000,
-      ip: '203.0.113.9',
-      failClosed: false,
-    });
-    expect(first.ok).toBe(true);
-    expect(first.degraded).toBe(true);
+describe('production without a shared limiter', () => {
+  it('fails closed for every route when Upstash is not configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
 
-    const second = await enforceRateLimit({
-      name: 'test-air',
-      limit: 2,
-      windowMs: 60_000,
-      ip: '203.0.113.9',
-      failClosed: false,
-    });
-    expect(second.ok).toBe(true);
-
-    const third = await enforceRateLimit({
-      name: 'test-air',
-      limit: 2,
-      windowMs: 60_000,
-      ip: '203.0.113.9',
-      failClosed: false,
-    });
-    expect(third.ok).toBe(false);
-    expect(third.reason).toBe('rate_limited');
-    expect(third.retryAfterSeconds).toBeGreaterThan(0);
+    for (const name of ['plan', 'air', 'geocode']) {
+      const result = await enforceRateLimit({
+        name,
+        limit: 5,
+        windowMs: 60_000,
+        ip: '203.0.113.9',
+      });
+      expect(result.ok).toBe(false);
+      expect(result.reason).toBe('limiter_unavailable');
+      expect(result.degraded).toBe(false);
+      expect(result.retryAfterSeconds).toBeGreaterThan(0);
+    }
   });
 
-  it('fails closed on the paid route when the limiter is unreachable', async () => {
+  it('fails closed when Upstash is configured but unreachable', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
     process.env.UPSTASH_REDIS_REST_URL = 'https://127.0.0.1:1';
     process.env.UPSTASH_REDIS_REST_TOKEN = 'fake-token';
     __resetRateLimitState();
 
     const result = await enforceRateLimit({
-      name: 'test-plan',
+      name: 'plan',
       limit: 5,
       windowMs: 60_000,
       ip: '203.0.113.10',
-      failClosed: true,
     });
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('limiter_unavailable');
   });
 
-  it('falls back to memory on public routes when the limiter is unreachable', async () => {
+  it('fails the daily cap closed when Upstash is not configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const result = await consumeDailyLlmQuota(10);
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe('quota_unavailable');
+  });
+});
+
+describe('development fallback', () => {
+  it('uses the in-memory limiter and warns exactly once', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    __resetRateLimitState();
+
+    const args = {
+      name: 'test-air',
+      limit: 2,
+      windowMs: 60_000,
+      ip: '203.0.113.9',
+    };
+
+    expect((await enforceRateLimit(args)).ok).toBe(true);
+    expect((await enforceRateLimit(args)).ok).toBe(true);
+    const third = await enforceRateLimit(args);
+    expect(third.ok).toBe(false);
+    expect(third.reason).toBe('rate_limited');
+    expect(third.retryAfterSeconds).toBeGreaterThan(0);
+
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    const memoryWarnings = messages.filter((message) =>
+      message.includes('in-memory rate limiter'),
+    );
+    expect(memoryWarnings).toHaveLength(1);
+    // Names only, never a credential value.
+    expect(memoryWarnings[0]).toContain('UPSTASH_REDIS_REST_URL');
+    expect(memoryWarnings[0]).not.toContain('fake-token');
+  });
+
+  it('degrades to memory when the limiter is unreachable outside production', async () => {
     process.env.UPSTASH_REDIS_REST_URL = 'https://127.0.0.1:1';
     process.env.UPSTASH_REDIS_REST_TOKEN = 'fake-token';
     __resetRateLimitState();
@@ -113,7 +136,6 @@ describe('enforceRateLimit', () => {
       limit: 5,
       windowMs: 60_000,
       ip: '203.0.113.11',
-      failClosed: false,
     });
     expect(result.ok).toBe(true);
     expect(result.degraded).toBe(true);

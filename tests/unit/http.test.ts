@@ -22,9 +22,23 @@ describe('client IP derivation', () => {
     expect(getClientIp(new Headers({ 'x-real-ip': '198.51.100.4' }))).toBe('198.51.100.4');
   });
 
-  it('uses only the rightmost x-forwarded-for hop (left entries are spoofable)', () => {
-    const headers = new Headers({ 'x-forwarded-for': '6.6.6.6, 203.0.113.50' });
+  it('reads the leftmost entry, which Vercel guarantees is the real client', () => {
+    const headers = new Headers({ 'x-forwarded-for': '203.0.113.50, 6.6.6.6' });
     expect(getClientIp(headers)).toBe('203.0.113.50');
+    expect(getClientIp(headers, { trustForwardedFor: false })).toBe('unknown');
+  });
+
+  it('ignores a client-supplied x-forwarded-for in production', () => {
+    const spoofed = new Headers({ 'x-forwarded-for': '1.2.3.4' });
+    expect(getClientIp(spoofed, { trustForwardedFor: false })).toBe('unknown');
+
+    // A trusted Vercel header always wins, so rotating x-forwarded-for cannot
+    // select a different rate-limit bucket.
+    const both = new Headers({
+      'x-vercel-forwarded-for': '203.0.113.7',
+      'x-forwarded-for': '1.2.3.4',
+    });
+    expect(getClientIp(both, { trustForwardedFor: false })).toBe('203.0.113.7');
   });
 
   it('ignores malformed values and falls back to a shared bucket', () => {

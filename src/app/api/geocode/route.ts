@@ -16,11 +16,18 @@ export async function GET(request: Request): Promise<Response> {
     limit: RATE_LIMITS.geocode.limit,
     windowMs: RATE_LIMITS.geocode.windowMs,
     ip: getClientIp(new Headers(request.headers)),
-    failClosed: false,
   });
   if (!limit.ok) {
-    logEvent({ route: '/api/geocode', status: 429, durationMs: Date.now() - started });
-    return errorResponse('rate_limited', { 'Retry-After': String(limit.retryAfterSeconds) });
+    const unavailable = limit.reason === 'limiter_unavailable';
+    logEvent({
+      route: '/api/geocode',
+      status: unavailable ? 503 : 429,
+      durationMs: Date.now() - started,
+      outcome: limit.reason ?? 'rate_limited',
+    });
+    return errorResponse(unavailable ? 'service_unavailable' : 'rate_limited', {
+      'Retry-After': String(limit.retryAfterSeconds),
+    });
   }
 
   const url = new URL(request.url);

@@ -20,6 +20,8 @@ export type FallbackReason =
   | 'daily_cap'
   | 'quota_unavailable'
   | 'rate_limited'
+  /** No shared rate limiter is available, so the paid path is switched off. */
+  | 'limiter_unavailable'
   /** The user cancelled a slow request; the browser builds this plan itself. */
   | 'cancelled'
   | 'unknown';

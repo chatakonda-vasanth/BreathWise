@@ -22,11 +22,18 @@ export async function GET(request: Request): Promise<Response> {
     limit: RATE_LIMITS.air.limit,
     windowMs: RATE_LIMITS.air.windowMs,
     ip,
-    failClosed: false,
   });
   if (!limit.ok) {
-    logEvent({ route: '/api/air', status: 429, durationMs: Date.now() - started });
-    return errorResponse('rate_limited', {
+    // Never leave a route unlimited: without a shared limiter there is no
+    // verified allowance, so answer 503 with a generic message.
+    const unavailable = limit.reason === 'limiter_unavailable';
+    logEvent({
+      route: '/api/air',
+      status: unavailable ? 503 : 429,
+      durationMs: Date.now() - started,
+      outcome: limit.reason ?? 'rate_limited',
+    });
+    return errorResponse(unavailable ? 'service_unavailable' : 'rate_limited', {
       'Retry-After': String(limit.retryAfterSeconds),
     });
   }

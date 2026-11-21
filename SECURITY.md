@@ -32,7 +32,7 @@ third party directly — `connect-src 'self'`.
 
 | Threat | Example | Mitigation in this codebase |
 | --- | --- | --- |
-| **S**poofing | Forged client IP to dodge rate limits | IP comes only from `x-vercel-forwarded-for` / `x-real-ip`; rightmost `x-forwarded-for` hop only; unparseable → shared bucket (`src/lib/http.ts`). |
+| **S**poofing | Forged client IP to dodge rate limits | In production the key comes only from Vercel-written headers: `x-vercel-forwarded-for`, then `x-real-ip`; a caller-supplied `x-forwarded-for` is ignored, so rotating it cannot reset a limit. Outside production `x-forwarded-for` is a last resort (leftmost entry, as Vercel documents). Unparseable/missing → one shared `unknown` bucket, never a bypass (`src/lib/http.ts`). Verified by `tests/unit/http.test.ts` and the spoofing test in `tests/unit/productionLimits.test.ts`. |
 | Spoofing | Cross-site form/script POSTing to `/api/plan` | `Origin` **required** on POST and compared to `APP_ORIGIN`/`Host`; `sec-fetch-site` must be same-origin; no CORS headers are ever emitted; `OPTIONS` → 403. |
 | **T**ampering | Passing invented air data to the model | `/api/plan` accepts only profile + coordinates; the snapshot is re-fetched server-side. |
 | Tampering | Prompt injection via city names, profile or upstream data | No free-text field exists anywhere in the request path (an earlier draft accepted a display-only `locationLabel`; it was removed during self-audit as unused attack surface); all schemas are `strictObject` (unknown keys rejected); prompt data blocks are delimited and labelled untrusted; every upstream string is reduced to a strict character set before entering the prompt. |
@@ -41,10 +41,10 @@ third party directly — `connect-src 'self'`.
 | Tampering | Service worker poisoning the app | SW caches only same-origin GETs outside `/api/`, only `response.ok && type === 'basic'`, and ignores requests with `Authorization`; cache version bumped on change. |
 | **R**epudiation | No audit trail of abuse | Structured minimal logs (route, status, duration, outcome) with no location/profile/IP; intentionally not a personal-data log. |
 | **I**nformation disclosure | Key leaking into the browser bundle | Secrets are read only via `process.env` inside route handlers; nothing is `NEXT_PUBLIC_`; `scripts/check-client-bundles.mjs` fails the build if a key value, key shape or server-only variable name appears under `.next/static`. |
-| Information disclosure | Stack traces / upstream error bodies | Every route returns one of eight generic codes; upstream bodies are never forwarded; `logEvent` accepts no free-form data. |
+| Information disclosure | Stack traces / upstream error bodies | Every route returns one of nine generic codes; upstream bodies are never forwarded; `logEvent` accepts no free-form data; the startup check logs variable names only, never values. |
 | Information disclosure | Location logging | Coordinates are rounded in `normaliseCoords` before any use, never logged, never persisted; the prompt excludes them. |
 | Information disclosure | Clickjacking / referrer leakage | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (the only external navigation is a `wa.me` share link, which needs no referrer). |
-| **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s; **fail closed** on `/api/plan` when Upstash is unreachable. |
+| **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s. Production **requires** Upstash: missing or unreachable → every route fails closed (`/api/plan` 200 + labelled fallback with no model call; `/api/air`, `/api/geocode` 503 + `Retry-After`). Development-only memory limiter with a startup warning. Tests: `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts`. |
 | DoS | Oversized bodies | `readJsonBody` rejects on declared `Content-Length` and on the actual byte length (8 KiB cap). |
 | DoS | Slowloris-style outbound hangs | `AbortSignal.timeout(5000)` for Open-Meteo, 18 s per model attempt and a 25 s shared budget (a timeout is never retried and a first attempt slower than half the budget skips the retry, so one request cannot hang for 2x the budget), 1.5 s for Redis. |
 | **E**levation of privilege | SSRF to cloud metadata endpoints | Hosts are constants (`air-quality-api.open-meteo.com`, `geocoding-api.open-meteo.com`, `generativelanguage.googleapis.com`); query values are validated numbers; `redirect: 'error'`; the model has no tools (`functionCallingConfig.mode = 'NONE'`). |
@@ -84,7 +84,8 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | Cross-site POST to `/api/plan` | Origin + `sec-fetch-site` enforcement, no CORS | `tests/unit/http.test.ts` (6 origin cases), `tests/e2e/smoke.spec.ts` (cross-origin → 403) |
 | IP spoofing to dodge limits | Trusted Vercel headers only, rightmost-hop fallback, hashing | `tests/unit/http.test.ts` (5 IP cases) |
 | Unbounded LLM spend | Per-IP sliding window + daily cap + kill switch, fail closed | `tests/unit/rateLimit.test.ts`, `tests/unit/planService.test.ts` (cap, disabled, no key) |
-| Limiter outage | `withTimeout(1.5 s)`, fail closed on paid route only | `tests/unit/rateLimit.test.ts` (unreachable limiter → `limiter_unavailable`) |
+| Limiter outage | `withTimeout(1.5 s)`; production fails closed on **every** route, development degrades to memory with one warning | `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts` (plan → 200 labelled fallback, air/geocode → 503) |
+| Production deployed without Upstash | Startup env check logs the missing variable names; requests fail closed rather than running unlimited | `tests/unit/envCheck.test.ts`, `tests/unit/productionLimits.test.ts` |
 | Oversized body | 8 KiB cap, declared and actual length | `tests/unit/http.test.ts`, e2e oversized POST → 400/413 |
 | Platform kills the function (504 instead of guidance) | Explicit `maxDuration = 45` s (Hobby allows 300 s), 18 s per-attempt cap, 25 s total LLM budget, 5 s response margin — worst case 35 s — and every failure path returns a labelled fallback plan with HTTP 200 | `tests/unit/planRoute.test.ts` (simulated provider that only settles on abort: 200 + `fallbackReason: "timeout"`, one attempt, inside budget), `tests/unit/planService.test.ts` (budget exhausted, half-budget retry skip) |
 | Prompt injection | No free text; strict schemas; delimited untrusted blocks; sanitised upstream strings | `tests/unit/prompt.test.ts` (injection in timezone/current time), `tests/unit/schemas.test.ts` (unknown keys rejected) |
@@ -125,13 +126,16 @@ npm run audit && npm run secrets && npm run check:bundles
 
 ## Known limitations
 
-1. **Rate limiting without Upstash is per-instance.** If `UPSTASH_REDIS_REST_URL`
-   and `_TOKEN` are not set, the limiter is an in-memory map. On serverless that
-   is best-effort only. Production must set both. `/api/plan` still fails closed
-   once Upstash *is* configured but unreachable; it cannot fail closed when it is
-   not configured at all without taking the app offline, which would be worse
-   during a smog event. Deployments that require hard guarantees should set the
-   variables and monitor `/api/plan` 429/503 rates.
+1. **Rate limiting requires Upstash in production.** Without both variables, a
+   production build fails closed: `/api/plan` returns the labelled rule-based
+   plan with HTTP 200 and never calls the model, and the other API routes return
+   503. That keeps the safety-critical page working without ever leaving an
+   endpoint unlimited, but it does mean a misconfigured deployment silently
+   serves no AI plans until the variables are set. `src/instrumentation.ts`
+   logs the missing variable **names** at startup; alert on that line and on the
+   `/api/plan` `fallback:limiter_unavailable` outcome. Development and tests use
+   a per-instance memory limiter, which is not shared across serverless
+   instances and is therefore development-only.
 2. **The daily LLM cap is global, not per user.** That is intentional (there are
    no users), but it means one abuser can consume the day's budget; the
    deterministic fallback keeps the product working when that happens.

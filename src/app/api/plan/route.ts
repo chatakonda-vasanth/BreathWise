@@ -50,9 +50,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     limit: RATE_LIMITS.plan.limit,
     windowMs: RATE_LIMITS.plan.windowMs,
     ip: getClientIp(headers),
-    failClosed: true,
   });
-  if (!limit.ok) {
+  // A missing or unreachable limiter must never leave this route unlimited.
+  // The app's purpose is to give a safe plan, so instead of an error the
+  // request continues to the labelled rule-based plan with no model call.
+  const limiterUnavailable = !limit.ok && limit.reason === 'limiter_unavailable';
+  if (!limit.ok && !limiterUnavailable) {
     logEvent({
       route: '/api/plan',
       status: 429,
@@ -125,6 +128,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     severity: derived.severity,
     naqi: derived.naqi,
     language: profile.language,
+    // No rate limiting means no model call at all: the free tier cannot be
+    // protected, so the paid path stays off until Upstash is reachable.
+    ...(limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
     // Hand the model only what is left of the function's wall clock, minus the
     // margin needed to write the response. generatePlan clamps and never starts
     // an attempt it cannot finish before the deadline.

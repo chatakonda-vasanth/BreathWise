@@ -10,7 +10,8 @@ quality in two standards, and get a household plan with a labelled
 - Air data: [Open-Meteo](https://open-meteo.com/) Air Quality + Geocoding (no key, server-side only).
 - Plan generation: Gemini free tier (or any OpenAI-compatible key you wire up), server-side only, with a
   deterministic rule-based fallback that is always available.
-- Rate limiting: Upstash Redis (free tier) with a documented per-instance fallback.
+- Rate limiting: Upstash Redis (free tier), **required in production** — every route
+  fails closed without it; a per-instance in-memory limiter is used in development only.
 
 ---
 
@@ -51,12 +52,12 @@ bundle by definition.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | no | Server-side LLM key. Unset → fallback plans only. |
-| `GEMINI_MODEL` | no | Model id, default `gemini-3.5-flash`. Changing models needs no code change. |
+| `GEMINI_MODEL` | yes (recommended) | Model id, default `gemini-3.5-flash`. Changing models needs no code change. The startup check names it if missing, so production never depends on an implicit default. |
 | `LLM_DISABLED` | no | `true` → kill switch; no outbound AI call at all. |
 | `DAILY_LLM_CAP` | no | Daily generation cap, default 200 (counter in Upstash). |
 | `LLM_ATTEMPT_TIMEOUT_MS` | no | Lower the per-attempt AI timeout. Clamped to 18000, so it can only be tightened. |
-| `UPSTASH_REDIS_REST_URL` | prod | Distributed rate limiting. |
-| `UPSTASH_REDIS_REST_TOKEN` | prod | Same. |
+| `UPSTASH_REDIS_REST_URL` | **yes (production)** | Distributed rate limiting. Without it production refuses to spend: `/api/plan` returns the labelled fallback plan, the other API routes return 503. |
+| `UPSTASH_REDIS_REST_TOKEN` | **yes (production)** | Same — both are needed. |
 | `APP_ORIGIN` | prod | Exact origin for same-origin checks, e.g. `https://cleanair.example`. |
 
 ---
@@ -166,6 +167,60 @@ proves this against a simulated provider that only settles when aborted.
 
 ---
 
+## Rate limiting and the Upstash free tier
+
+Rate limiting is the only thing standing between a public endpoint and the
+owner's model quota, so it is never optional in production.
+
+| Situation | `/api/plan` | `/api/air`, `/api/geocode` |
+| --- | --- | --- |
+| Upstash configured and reachable | normal (429 + `Retry-After` when over the limit) | normal |
+| Upstash unreachable (timeout 1.5 s) | **200** + labelled fallback, `fallbackReason: "limiter_unavailable"`, no model call | **503** + `Retry-After`, generic message |
+| Upstash variables missing, `NODE_ENV=production` | same as above | **503** |
+| Upstash variables missing, development | per-instance memory limiter + one startup warning | same |
+
+**Startup configuration check.** `src/instrumentation.ts` calls
+`reportEnv()` once per Node.js server instance. It logs a clear error for each
+missing required variable — `GEMINI_API_KEY`, `GEMINI_MODEL`,
+`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` — with the consequence, and
+**never logs a value**. A missing `GEMINI_API_KEY` disables only the model path
+(every plan becomes the deterministic fallback); the app does not crash.
+
+**Verified client-IP source.** Per Vercel's
+[request headers documentation](https://vercel.com/docs/headers/request-headers)
+(read November 2026): *"Vercel … overwrite[s] the X-Forwarded-For header and do[es]
+not forward external IPs. This restriction is in place to prevent IP spoofing."*
+`x-vercel-forwarded-for` is the same value and survives a proxy in front of
+Vercel, so it is read first. In production only those Vercel-set headers are
+used; a caller-supplied `x-forwarded-for` is ignored. `tests/unit/http.test.ts`
+and `tests/unit/productionLimits.test.ts` prove that rotating it in a request
+neither resets nor bypasses the limit.
+
+**Upstash free-tier limits** (official docs,
+[`upstash.com/docs/redis/overall/pricing`](https://upstash.com/docs/redis/overall/pricing)
+and `/billing`, read November 2026): **500,000 commands/month**, 10,000
+commands/second, 256 MB (250 MB in the pricing table), one database. Nothing
+here needs more than a few bytes per key, so size is irrelevant; the command
+count is the limit that matters.
+
+A plan request costs at most **4 commands**: one sliding-window script call for
+the per-IP limit, and `INCR` + `EXPIRE` for the daily cap (the `EXPIRE` only on
+the first request of the day). `/api/air` and `/api/geocode` cost at most 2 each.
+Under normal use — say 100 plan requests plus 400 air/geocode requests a day —
+that is about 1,400 commands/day, or **≈43,000/month, under 9% of the free
+tier**. The documented default `DAILY_LLM_CAP=200` also caps model spend
+independently of traffic.
+
+What the app cannot do is make a *sustained attack* cheap: the per-IP limit is
+6 plan requests/minute, so one address hammering the route all month would use
+more than 500K commands. Upstash's FAQ states that commands over the free
+allowance return an exception; that exception is handled as "limiter
+unreachable", so the app degrades to the labelled fallback / 503 instead of
+spending money. If you expect that traffic, set a budget alert and move to a
+paid Upstash plan — the code needs no change.
+
+---
+
 ## Attribution and licence notes
 
 - Air quality and geocoding data: **Open-Meteo, CC BY 4.0** — credited in the app
@@ -190,15 +245,24 @@ proves this against a simulated provider that only settles when aborted.
    CDN-caching of HTML is possible. That is a deliberate trade for a policy with
    no `unsafe-inline`/`unsafe-eval` in production. `'unsafe-eval'` and inline
    styles are enabled in development only, because React Fast Refresh needs them.
-4. **Rate limiting fails closed only where money is spent.** `/api/plan` is
-   blocked when the limiter is unreachable; `/api/air` and `/api/geocode` degrade
-   to a per-instance memory limiter (documented in `SECURITY.md`).
+4. **Rate limiting is mandatory in production.** In a production build,
+   `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` must be set and reachable.
+   If they are missing or the limiter does not answer within 1.5 s, every route
+   fails closed: `/api/plan` answers **200** with the labelled rule-based plan
+   (`fallbackReason: "limiter_unavailable"`) and never calls the model, while
+   `/api/air` and `/api/geocode` answer **503** with a generic message. No route
+   is ever left unlimited. Development uses a per-instance memory limiter and
+   says so once at startup.
 5. **`/api/plan` re-fetches air data.** A caller cannot supply invented air
    readings to the model. The only exception is the explicit `sample: true` demo
    flag, which is labelled in the response and the UI.
-6. **Client IP from `x-vercel-forwarded-for` / `x-real-ip` only**, with the
-   rightmost `x-forwarded-for` hop as a last resort, and IPs hashed before use as
-   rate-limit keys (no raw addresses stored).
+6. **Client IP from Vercel's own headers only.** In production the key comes from
+   `x-vercel-forwarded-for`, then `x-real-ip`; both are written by Vercel's edge
+   and cannot be set by the caller, so rotating `x-forwarded-for` cannot select a
+   new bucket. Outside production, `x-forwarded-for` is accepted as a last resort
+   (leftmost entry, the one Vercel documents as the real client), and an
+   unparseable address becomes one shared `unknown` bucket. IPs are hashed before
+   use as rate-limit keys, so no raw address is stored (`src/lib/http.ts`).
 7. **No CORS at all.** No `Access-Control-Allow-Origin` header is ever sent;
    `OPTIONS` on `/api/plan` returns 403.
 8. **Service worker caches the shell and static assets only.** `/api/*` is never

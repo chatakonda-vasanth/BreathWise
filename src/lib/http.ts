@@ -9,6 +9,7 @@ export type ErrorCode =
   | 'upstream_unavailable'
   | 'body_too_large'
   | 'unsupported_media_type'
+  | 'service_unavailable'
   | 'server_error';
 
 const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -18,6 +19,7 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   upstream_unavailable: 'Live air data is temporarily unavailable.',
   body_too_large: 'The request was too large.',
   unsupported_media_type: 'Unsupported content type.',
+  service_unavailable: 'The service is temporarily unavailable. Please try again shortly.',
   server_error: 'Something went wrong. Please try again.',
 };
 
@@ -28,6 +30,7 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   upstream_unavailable: 502,
   body_too_large: 413,
   unsupported_media_type: 415,
+  service_unavailable: 503,
   server_error: 500,
 };
 
@@ -61,27 +64,39 @@ function isPlausibleIp(value: string): boolean {
   return IPV6.test(value) && value.includes(':');
 }
 
+export interface ClientIpOptions {
+  /**
+   * Allow the `x-forwarded-for` last resort. Defaults to on outside production.
+   * In production only headers Vercel itself sets are accepted.
+   */
+  trustForwardedFor?: boolean;
+}
+
 /**
  * Client IP for rate limiting.
  *
- * Vercel overwrites `x-vercel-forwarded-for` and `x-real-ip` at the edge, so
- * those are the only headers we trust for the client address. A raw
- * `x-forwarded-for` is client-controlled on the left, so at most the *rightmost*
- * entry (appended by the nearest proxy) is used, and only as a last resort.
- * Anything unparseable becomes a single shared bucket rather than a bypass.
+ * Per Vercel's request-header docs (vercel.com/docs/headers/request-headers,
+ * read November 2026), Vercel **overwrites** `x-forwarded-for` at the edge from
+ * the TCP connection, and `x-vercel-forwarded-for` / `x-real-ip` are identical
+ * values that a proxy in front of Vercel cannot rewrite. When Vercel is the
+ * outermost edge — the default — the leftmost entry is the real client.
+ *
+ * In production we therefore read only `x-vercel-forwarded-for` and `x-real-ip`.
+ * A client-supplied `x-forwarded-for` is ignored there, so rotating it cannot
+ * pick a new rate-limit bucket. Outside production (local dev, tests, a
+ * self-hosted run behind a trusted proxy) `x-forwarded-for` is accepted as a
+ * last resort; an unparseable or absent address becomes one shared `unknown`
+ * bucket, which is stricter than a bypass.
  */
-export function getClientIp(headers: Headers): string {
-  const trusted = headers.get('x-vercel-forwarded-for') ?? headers.get('x-real-ip');
-  if (trusted) {
-    const candidate = trusted.split(',')[0]?.trim() ?? '';
-    if (isPlausibleIp(candidate)) return candidate;
-  }
+export function getClientIp(headers: Headers, options: ClientIpOptions = {}): string {
+  const trustForwardedFor = options.trustForwardedFor ?? process.env.NODE_ENV !== 'production';
 
-  const forwarded = headers.get('x-forwarded-for');
-  if (forwarded) {
-    const hops = forwarded.split(',').map((hop) => hop.trim());
-    const rightmost = hops[hops.length - 1] ?? '';
-    if (isPlausibleIp(rightmost)) return rightmost;
+  const candidates = [headers.get('x-vercel-forwarded-for'), headers.get('x-real-ip')];
+  if (trustForwardedFor) candidates.push(headers.get('x-forwarded-for'));
+
+  for (const raw of candidates) {
+    const candidate = raw?.split(',')[0]?.trim() ?? '';
+    if (isPlausibleIp(candidate)) return candidate;
   }
 
   return 'unknown';

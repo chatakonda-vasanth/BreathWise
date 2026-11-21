@@ -636,6 +636,11 @@ export function fallbackReasonLabel(language: Language, reason: string): string 
       te: 'వినియోగ లెక్కింపు అందుబాటులో లేదు',
     },
     rate_limited: { en: 'Too many requests', hi: 'बहुत अनुरोध', te: 'అధిక అభ్యర్థనలు' },
+    limiter_unavailable: {
+      en: 'Request protection is temporarily unavailable, so the AI plan is off',
+      hi: 'अनुरोध सुरक्षा अभी उपलब्ध नहीं, इसलिए AI योजना बंद है',
+      te: 'అభ్యర్థన రక్షణ ప్రస్తుతం అందుబాటులో లేదు, కాబట్టి AI ప్రణాళిక ఆఫ్‌లో ఉంది',
+    },
     cancelled: {
       en: 'You cancelled the AI request',
       hi: 'आपने AI अनुरोध रद्द किया',
