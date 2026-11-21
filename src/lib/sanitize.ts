@@ -50,6 +50,9 @@ const MEDICAL_PATTERNS: readonly RegExp[] = [
   /\bprescri(?:be|ption|bed)\b/i,
   /\b(?:take|swallow)\s+(?:one|two|three|\d+)\s+(?:tablet|pill|puff|capsule)s?\b/i,
   /\b(?:tablets?|capsules?)\s+(?:daily|twice|thrice|per day|a day)\b/i,
+  // A bare count ("2 tablets", "one puff") is a dose even without a verb, and
+  // air-quality guidance never needs one, so this cannot misfire on a real plan.
+  /\b(?:\d+|one|two|three|four|five)\s+(?:tablets?|pills?|capsules?|puffs?)\b/i,
   /\byou\s+(?:have|are\s+suffering\s+from|are\s+diagnosed\s+with)\b/i,
   /\bdiagnos(?:is|e|ed|tic)\b/i,
   /\b(?:paracetamol|ibuprofen|azithromycin|amoxicillin|cetirizine|montelukast|salbutamol|prednisolone|corticosteroid)\b/i,

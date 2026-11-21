@@ -35,6 +35,7 @@ Node 20+ is required.
 | `npm run typecheck` | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) |
 | `npm test` | Vitest unit suite (145 tests) |
 | `npm run test:e2e` | Playwright smoke tests (needs `npm run build` first) |
+| `npm run test:live` | Live AI-path tests against the real Gemini API; auto-skipped when `GEMINI_API_KEY` is unset |
 | `npm run audit` | `npm audit` at every severity |
 | `npm run secrets` | gitleaks scan of the working tree |
 | `npm run check:bundles` | Greps the client bundle for keys and secret env names |
@@ -189,7 +190,8 @@ src/lib/            aqi, naqi, geo, schemas, prompt, gemini, planService,
                     security, http, air, indices, client
 src/proxy.ts        per-request CSP nonce + security headers (Next 16 name)
 public/             manifest.webmanifest, sw.js, generated icons
-tests/unit/         Vitest suites
+tests/unit/         Vitest suites (offline)
+tests/live/         key-gated live AI tests (real Gemini calls via /api/plan)
 tests/e2e/          Playwright smoke tests
 scripts/            icon generator, client-bundle secret scan
 ```

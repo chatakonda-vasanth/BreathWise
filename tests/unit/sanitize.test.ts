@@ -57,13 +57,29 @@ describe('medical safety guard', () => {
   it('does not treat pollution concentrations as dosages', () => {
     expect(looksLikeMedicalAdvice('PM2.5 is 111 µg/m³ this afternoon.')).toBe(false);
     expect(looksLikeMedicalAdvice('It settles to 66.8–70.5 µg/m3 tonight.')).toBe(false);
+    expect(looksLikeMedicalAdvice('PM2.5 stays near 120 µg per cubic metre.')).toBe(false);
     expect(looksLikeMedicalAdvice('Suspended dust near 30 mg/m³ on the road.')).toBe(false);
-    expect(looksLikeMedicalAdvice('PM2.5 of 120 µg per cubic metre')).toBe(false);
+    expect(looksLikeMedicalAdvice('Dust can reach 400 mg/m3 during road work.')).toBe(false);
+    expect(looksLikeMedicalAdvice('Road dust of 30 mg per cubic metre at the junction.')).toBe(
+      false,
+    );
   });
 
-  it('still flags the same unit when it is a dose', () => {
+  // Regression: ppm and ppb are gas concentrations (NO2, O3, CO), never doses.
+  it('does not treat gas concentrations in ppm or ppb as dosages', () => {
+    expect(looksLikeMedicalAdvice('NO2 is 45 ppb at the kerb.')).toBe(false);
+    expect(looksLikeMedicalAdvice('Ozone peaks at 0.07 ppm in the afternoon.')).toBe(false);
+    expect(looksLikeMedicalAdvice('CO stays under 1.2 ppm indoors.')).toBe(false);
+    expect(looksLikeMedicalAdvice('The sensor reports 120 ppb and 0.09 ppm.')).toBe(false);
+  });
+
+  it('still flags a real dose', () => {
     expect(looksLikeMedicalAdvice('Take 500 mg twice a day')).toBe(true);
+    expect(looksLikeMedicalAdvice('500 mg')).toBe(true);
     expect(looksLikeMedicalAdvice('Give 5 ml of syrup')).toBe(true);
+    expect(looksLikeMedicalAdvice('2 tablets')).toBe(true);
+    expect(looksLikeMedicalAdvice('Give two tablets after food.')).toBe(true);
+    expect(looksLikeMedicalAdvice('One puff of the inhaler when tight.')).toBe(true);
   });
 });
 
