@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchAir, requestPlan, type ApiError } from '@/lib/client';
 import type { AirResponse } from '@/lib/apiSchemas';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { roundCoord } from '@/lib/geo';
 import { LANGUAGE_NAMES, SEVERITY_LABELS, t, tList } from '@/lib/i18n';
+import { buildFallbackPlan } from '@/lib/fallbackPlan';
 import { deriveIndices } from '@/lib/indices';
 import { createSampleSnapshot } from '@/lib/sampleData';
 import type { Profile } from '@/lib/schemas';
@@ -60,6 +61,7 @@ export function AppShell() {
   const [planLoading, setPlanLoading] = useState(false);
   const [planSlow, setPlanSlow] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  const planAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (theme === 'auto') {
@@ -108,6 +110,10 @@ export function AppShell() {
 
   async function handleSubmitPlan() {
     if (!location) return;
+    // A regenerate must not race the previous request.
+    planAbort.current?.abort();
+    const controller = new AbortController();
+    planAbort.current = controller;
     setPlanLoading(true);
     setPlanSlow(false);
     setPlanError(null);
@@ -116,15 +122,21 @@ export function AppShell() {
     // silent spinner. The timer is cleared with the request.
     const slowTimer = setTimeout(() => setPlanSlow(true), SLOW_PLAN_MS);
     try {
-      const response = await requestPlan({
-        profile: { ...profile, language: lang },
-        lat: location.lat,
-        lon: location.lon,
-        sample: airData?.air.isSample ?? false,
-      });
+      const response = await requestPlan(
+        {
+          profile: { ...profile, language: lang },
+          lat: location.lat,
+          lon: location.lon,
+          sample: airData?.air.isSample ?? false,
+        },
+        controller.signal,
+      );
       setPlan(response.plan);
       setStep(3);
     } catch (error) {
+      // Cancelled by the user: the fallback plan is already on screen, so this
+      // is not an error.
+      if (controller.signal.aborted) return;
       const code = (error as ApiError)?.code;
       setPlanError(
         code === 'rate_limited'
@@ -137,7 +149,32 @@ export function AppShell() {
       clearTimeout(slowTimer);
       setPlanSlow(false);
       setPlanLoading(false);
+      if (planAbort.current === controller) planAbort.current = null;
     }
+  }
+
+  /**
+   * Cancel a slow generation. The deterministic plan is built in the browser
+   * from the snapshot already on screen, so the user gets the guidance at once
+   * instead of waiting for the model or the request to unwind.
+   */
+  function handleCancelPlan() {
+    if (!airData) return;
+    planAbort.current?.abort();
+    planAbort.current = null;
+    setPlan(
+      buildFallbackPlan({
+        snapshot: airData.air,
+        profile: { ...profile, language: lang },
+        language: lang,
+        severity: airData.indices.severity,
+        naqiBand: airData.indices.naqi.band,
+        reason: 'cancelled',
+      }),
+    );
+    setPlanSlow(false);
+    setPlanLoading(false);
+    setStep(3);
   }
 
   const severity = airData?.indices.severity ?? 'moderate';
@@ -289,9 +326,16 @@ export function AppShell() {
                 onBack={() => setStep(1)}
               />
               {planLoading ? (
-                <p className="mt-3 hint" role="status" aria-live="polite">
-                  {planSlow ? t(lang, 'generatingSlow') : t(lang, 'generating')}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <p className="hint" role="status" aria-live="polite">
+                    {planSlow ? t(lang, 'generatingSlow') : t(lang, 'generating')}
+                  </p>
+                  {planSlow ? (
+                    <button type="button" className="btn text-sm" onClick={handleCancelPlan}>
+                      {t(lang, 'cancelPlan')}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
               {planError ? (
                 <div className="mt-3">

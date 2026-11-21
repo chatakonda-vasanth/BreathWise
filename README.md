@@ -135,14 +135,16 @@ model inside it.
 | `maxDuration = 45` s | `src/app/api/plan/route.ts` | Explicit, far below the 300 s Hobby ceiling, so a hung request can never sit for minutes. |
 | Air fetch ≤ 5 s | `UPSTREAM_TIMEOUT_MS` | Open-Meteo runs before the model and counts against the same clock. |
 | One LLM attempt ≤ 18 s | `LLM_ATTEMPT_TIMEOUT_MS` | Measured live latency is 10.1 s (en), 10.8 s (hi), 13.2 s (te); 18 s leaves ~5 s of headroom over the slowest language. |
-| All attempts ≤ 30 s | `LLM_TOTAL_BUDGET_MS` | Two 18 s attempts cannot fit, so the shared deadline caps the second one at the time actually left. |
+| All attempts ≤ 25 s | `LLM_TOTAL_BUDGET_MS` | Two 18 s attempts cannot fit, so the shared deadline caps the second one at the time actually left. 25 s is also the ceiling the UI quotes, so the promise and the budget cannot drift apart. |
 | Response margin 5 s | `ROUTE_RESPONSE_MARGIN_MS` | Time to serialise the JSON and write the response before the platform kill. |
 
-Worst case: 5 + 30 + 5 = **40 s**, inside `maxDuration = 45`, with the remaining
-5 s absorbing cold start and scheduling jitter.
+Worst case: 5 + 25 + 5 = **35 s**, inside `maxDuration = 45`, with 10 s left for
+cold start and scheduling jitter. (The previous 30 s LLM budget gave a 40 s worst
+case; it was tightened to 25 s so the LLM can never consume most of the
+function's allowance.)
 
 **Retry rule.** A retry only runs when the first attempt finished inside *half*
-the LLM budget (15 s of 30 s). A slower first attempt — a hang near the 18 s cap,
+the LLM budget (12.5 s of 25 s). A slower first attempt — a hang near the 18 s cap,
 or a slow answer that then failed validation — breaks the loop and returns the
 labelled fallback immediately, because a second attempt could no longer finish
 before the deadline. Timeouts, rate limits and a rejected key are never retried
@@ -151,8 +153,13 @@ clamps it, so if the air fetch was slow the model gets correspondingly less; if
 no time is left, the fallback is returned without calling the provider.
 
 The UI shows `Building your plan…` immediately and switches to `Still working,
-this can take up to 30 seconds.` (translated) after 5 s, so a slow generation
-looks deliberate rather than broken. A timeout is a normal 200 response with
+this can take up to 25 seconds.` (translated) after 5 s, so a slow generation
+looks deliberate rather than broken. That message comes with a **Cancel and show
+the offline plan** button: it aborts the fetch and builds the deterministic plan
+in the browser from the snapshot already on screen (`fallbackReason:
+"cancelled"`), so the user never waits 25 s for guidance they can have now. The
+route keeps running server-side until its own deadline; the aborted request is
+simply not shown. A timeout is a normal 200 response with
 `meta.generatedBy: "fallback"`, `meta.fallbackReason: "timeout"`, and the fallback
 banner in the plan view — never an error page. `tests/unit/planRoute.test.ts`
 proves this against a simulated provider that only settles when aborted.

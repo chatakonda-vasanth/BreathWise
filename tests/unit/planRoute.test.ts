@@ -8,7 +8,7 @@ import {
   ROUTE_RESPONSE_MARGIN_MS,
   UPSTREAM_TIMEOUT_MS,
 } from '@/lib/constants';
-import { fallbackReasonLabel } from '@/lib/i18n';
+import { fallbackReasonLabel, t } from '@/lib/i18n';
 import { __resetRateLimitState } from '@/lib/rateLimit';
 import { planResponseSchema } from '@/lib/schemas';
 import { PROFILE } from '../fixtures';
@@ -131,7 +131,20 @@ describe('POST /api/plan when the model is too slow', () => {
     // A timeout is not retried, and the route answered inside its own budget.
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.elapsedMs).toBeLessThan(3000);
+    expect(result.elapsedMs).toBeLessThan(LLM_TOTAL_BUDGET_MS);
     expect(result.text).not.toContain('test-key-not-real');
+  });
+
+  it('quotes the same 25 s ceiling to the user that the budget enforces', () => {
+    expect(LLM_TOTAL_BUDGET_MS).toBe(25_000);
+    for (const language of ['en', 'hi', 'te'] as const) {
+      expect(t(language, 'generatingSlow')).toContain('25');
+    }
+    // The slow-state cancel button and its fallback reason exist in every locale.
+    for (const language of ['en', 'hi', 'te'] as const) {
+      expect(t(language, 'cancelPlan').length).toBeGreaterThan(0);
+      expect(fallbackReasonLabel(language, 'cancelled').length).toBeGreaterThan(0);
+    }
   });
 
   it('keeps the timeout path well inside maxDuration', () => {

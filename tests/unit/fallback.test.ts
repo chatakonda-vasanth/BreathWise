@@ -16,6 +16,22 @@ const SEVERITIES: SeverityBand[] = [
 ];
 
 describe('deterministic fallback plan', () => {
+  it('labels the plan the browser builds when the user cancels', () => {
+    const plan = buildFallbackPlan({
+      snapshot: SNAPSHOT,
+      profile: PROFILE,
+      language: 'en',
+      severity: 'moderate',
+      naqiBand: 'moderate',
+      reason: 'cancelled',
+    });
+
+    expect(planSchema.safeParse(plan).success).toBe(true);
+    expect(plan.generatedBy).toBe('fallback');
+    expect(plan.fallbackReason).toBe('cancelled');
+    expect(fallbackReasonLabel('en', 'cancelled')).toBe('You cancelled the AI request');
+  });
+
   for (const language of LANGUAGES) {
     for (const severity of SEVERITIES) {
       it(`produces a schema-valid plan for ${language}/${severity}`, () => {

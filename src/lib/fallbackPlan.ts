@@ -20,6 +20,8 @@ export type FallbackReason =
   | 'daily_cap'
   | 'quota_unavailable'
   | 'rate_limited'
+  /** The user cancelled a slow request; the browser builds this plan itself. */
+  | 'cancelled'
   | 'unknown';
 
 const CIGARETTE_ASSUMPTION: Record<Language, string> = {

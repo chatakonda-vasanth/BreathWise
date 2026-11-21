@@ -26,8 +26,12 @@ export const dynamic = 'force-dynamic';
  * small fraction of it and the LLM is budgeted to finish well inside it (see
  * constants.ts and the README), so a slow model returns the labelled fallback
  * instead of a 504 from the platform.
+ *
+ * The value must be a literal: Next.js reads route segment config statically and
+ * rejects an imported expression. `FUNCTION_MAX_DURATION_S` mirrors it for the
+ * budget arithmetic, and `tests/unit/planRoute.test.ts` fails if they diverge.
  */
-export const maxDuration = FUNCTION_MAX_DURATION_S;
+export const maxDuration = 45;
 
 /**
  * POST /api/plan

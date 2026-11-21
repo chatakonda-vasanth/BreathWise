@@ -37,12 +37,13 @@ export const LLM_ATTEMPT_TIMEOUT_MS = 18000;
 /**
  * Budget for all LLM attempts in one request (ms).
  *
- * Worst case end to end: 5 s air fetch + 30 s here + 5 s response margin = 40 s,
- * inside the 45 s `maxDuration`. A second attempt only runs when the first
- * finished inside half of this budget (see planService), so the retry can never
- * push the request past the platform limit.
+ * Worst case end to end: 5 s air fetch + 25 s here + 5 s response margin = 35 s,
+ * inside the 45 s `maxDuration`. 25 s is also the ceiling the UI quotes to the
+ * user ("up to 25 seconds"), so the promise and the budget cannot drift apart.
+ * A second attempt only runs when the first finished inside half of this budget
+ * (see planService), so the retry can never push the request past the deadline.
  */
-export const LLM_TOTAL_BUDGET_MS = 30000;
+export const LLM_TOTAL_BUDGET_MS = 25000;
 
 /** Never start another attempt with less than this much budget left. */
 export const LLM_RETRY_MIN_REMAINING_MS = 4000;

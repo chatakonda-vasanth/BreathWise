@@ -60,15 +60,20 @@ export async function searchCities(query: string) {
   return validate(geocodeResponseSchema, payload).results;
 }
 
-export async function requestPlan(input: {
-  profile: Profile;
-  lat: number;
-  lon: number;
-  sample?: boolean;
-}) {
+export async function requestPlan(
+  input: {
+    profile: Profile;
+    lat: number;
+    lon: number;
+    sample?: boolean;
+  },
+  /** Lets the UI cancel a slow generation and show the local fallback plan. */
+  signal?: AbortSignal,
+) {
   const payload = await requestJson('/api/plan', {
     method: 'POST',
     body: JSON.stringify(input),
+    signal,
   });
   return validate(planResponseSchema, payload);
 }
