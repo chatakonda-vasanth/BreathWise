@@ -1,4 +1,5 @@
 import { DEFAULT_GEMINI_MODEL } from './constants';
+import { isValidOrigin } from './http';
 import { warnMemoryLimiterOnce } from './rateLimit';
 
 /**
@@ -28,6 +29,12 @@ export interface EnvReport {
   llmDisabled: boolean;
   /** Production without Upstash → paid route falls back, other routes 503. */
   rateLimitingDisabled: boolean;
+  /**
+   * `unset` = same-origin checks use the request Host (safe default).
+   * `invalid` = the value is not an absolute http(s) origin, so every POST is
+   * rejected (fail closed).
+   */
+  appOrigin: 'unset' | 'valid' | 'invalid';
 }
 
 function isSet(source: EnvSource, name: RequiredEnvName): boolean {
@@ -42,11 +49,14 @@ export function inspectEnv(
   const upstashMissing =
     !isSet(source, 'UPSTASH_REDIS_REST_URL') || !isSet(source, 'UPSTASH_REDIS_REST_TOKEN');
 
+  const appOriginRaw = source.APP_ORIGIN?.trim();
+
   return {
     missing: [...missing],
     production,
     llmDisabled: !isSet(source, 'GEMINI_API_KEY'),
     rateLimitingDisabled: production && upstashMissing,
+    appOrigin: !appOriginRaw ? 'unset' : isValidOrigin(appOriginRaw) ? 'valid' : 'invalid',
   };
 }
 
@@ -85,6 +95,19 @@ export function reportEnv(source: EnvSource = process.env): EnvReport {
     console.error(
       `[cleanair] startup config ${prefix}: ${name} is not set. ` +
         consequenceOf(name, report.production),
+    );
+  }
+
+  if (report.appOrigin === 'invalid') {
+    // The route fails closed on this, so a typo here takes the paid route down.
+    // The value itself is not a secret, but it is not logged either: the name
+    // and the expected shape are enough to fix it.
+    const prefix = report.production ? 'error' : 'warning';
+    console.error(
+      `[cleanair] startup config ${prefix}: APP_ORIGIN is set but is not an ` +
+        'absolute http(s) origin (expected e.g. https://app.example.com, with a ' +
+        'scheme, no path and no trailing whitespace). Every POST to /api/plan is ' +
+        'rejected with 403 until it is fixed or the variable is unset.',
     );
   }
 

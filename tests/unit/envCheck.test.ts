@@ -39,6 +39,29 @@ describe('inspectEnv', () => {
     expect(report.llmDisabled).toBe(false);
   });
 
+  // Regression: a malformed APP_ORIGIN makes /api/plan reject every POST, so the
+  // startup check has to say so instead of letting it look configured.
+  it('flags an APP_ORIGIN that is not an absolute http(s) origin', () => {
+    const base = {
+      GEMINI_API_KEY: SECRET_KEY,
+      GEMINI_MODEL: 'gemini-3.5-flash',
+      UPSTASH_REDIS_REST_URL: 'https://example.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: SECRET_TOKEN,
+    };
+
+    expect(inspectEnv(base, true).appOrigin).toBe('unset');
+    expect(inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example' }, true).appOrigin).toBe(
+      'valid',
+    );
+    expect(inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example/' }, true).appOrigin).toBe(
+      'valid',
+    );
+
+    for (const broken of ['cleanair.example', 'cleanair.example:443', 'ftp://cleanair.example']) {
+      expect(inspectEnv({ ...base, APP_ORIGIN: broken }, true).appOrigin).toBe('invalid');
+    }
+  });
+
   it('is clean when all four are set', () => {
     const report = inspectEnv(
       {
@@ -77,6 +100,26 @@ describe('reportEnv', () => {
     expect(output).toContain('503');
     expect(output).not.toContain(SECRET_KEY);
     expect(output).not.toContain(SECRET_TOKEN);
+  });
+
+  it('reports an invalid APP_ORIGIN by name and never by value', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    reportEnv({
+      NODE_ENV: 'production',
+      GEMINI_API_KEY: SECRET_KEY,
+      GEMINI_MODEL: 'gemini-3.5-flash',
+      UPSTASH_REDIS_REST_URL: 'https://example.upstash.io',
+      UPSTASH_REDIS_REST_TOKEN: SECRET_TOKEN,
+      APP_ORIGIN: 'cleanair.example',
+    });
+
+    const output = error.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(output).toContain('APP_ORIGIN');
+    expect(output).toContain('403');
+    expect(output).not.toContain('cleanair.example');
+    expect(output).not.toContain(SECRET_KEY);
   });
 
   it('does not crash and disables only the model when the AI key is missing', () => {

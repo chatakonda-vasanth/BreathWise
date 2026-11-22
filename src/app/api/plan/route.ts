@@ -44,7 +44,21 @@ export async function POST(request: NextRequest): Promise<Response> {
   const started = Date.now();
   const headers = new Headers(request.headers);
 
-  // 1. Rate limit first and fail closed: this route can spend money.
+  // 1. Same-origin only (no wildcard CORS anywhere). Done before the limiter so
+  //    a cross-site form POST cannot burn the visitor's request budget, and so
+  //    a rejected request costs no Upstash command.
+  const origin = checkOrigin(request);
+  if (!origin.ok) {
+    logEvent({
+      route: '/api/plan',
+      status: 403,
+      durationMs: Date.now() - started,
+      outcome: origin.reason ?? 'forbidden_origin',
+    });
+    return errorResponse('forbidden_origin');
+  }
+
+  // 2. Rate limit and fail closed: this route can spend money.
   const limit = await enforceRateLimit({
     name: 'plan',
     limit: RATE_LIMITS.plan.limit,
@@ -63,18 +77,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       outcome: limit.reason ?? 'rate_limited',
     });
     return errorResponse('rate_limited', { 'Retry-After': String(limit.retryAfterSeconds) });
-  }
-
-  // 2. Same-origin only (no wildcard CORS anywhere).
-  const origin = checkOrigin(request);
-  if (!origin.ok) {
-    logEvent({
-      route: '/api/plan',
-      status: 403,
-      durationMs: Date.now() - started,
-      outcome: origin.reason ?? 'forbidden_origin',
-    });
-    return errorResponse('forbidden_origin');
   }
 
   // 3. Bounded, strict JSON body.

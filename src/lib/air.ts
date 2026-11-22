@@ -8,7 +8,7 @@ import {
   UPSTREAM_TIMEOUT_MS,
 } from './constants';
 import { overallUsAqi } from './aqi';
-import { coordCacheKey, normaliseCoords } from './geo';
+import { coordCacheKey, isValidLatitude, isValidLongitude, normaliseCoords } from './geo';
 import {  sanitizeText } from './sanitize';
 import type { AirPoint, AirSnapshot, GeocodeResult } from './types';
 
@@ -233,7 +233,9 @@ export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
   if (!parsed.success) throw new UpstreamError();
 
   return (parsed.data.results ?? [])
-    .filter((row) => Number.isFinite(row.latitude) && Number.isFinite(row.longitude))
+    // Upstream coordinates are untrusted too: drop anything a broken or hostile
+    // geocoder returns outside the valid range instead of handing it to the UI.
+    .filter((row) => isValidLatitude(row.latitude) && isValidLongitude(row.longitude))
     .map((row) => ({
       id: row.id,
       // Upstream text is untrusted: strip markup and cap length before it ever
@@ -243,6 +245,6 @@ export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
       ...(row.admin1 ? { admin1: sanitizeText(row.admin1, 80) } : {}),
       lat: row.latitude,
       lon: row.longitude,
-      timezone: row.timezone ?? 'UTC',
+      timezone: sanitizeText(row.timezone ?? 'UTC', 60) || 'UTC',
     }));
 }

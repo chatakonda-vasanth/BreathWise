@@ -183,6 +183,21 @@ describe('rate-limit refusals', () => {
     }
   });
 
+  // Regression: the limiter used to run before the origin check, so a page could
+  // post cross-site (a plain form needs no preflight) and burn a visitor's
+  // six-per-minute plan budget without ever producing a plan.
+  it('does not spend the request budget on rejected cross-site POSTs', async () => {
+    const client = { 'x-vercel-forwarded-for': '203.0.113.40' };
+
+    for (let i = 0; i < RATE_LIMITS.plan.limit + 3; i += 1) {
+      const rejected = await post({ ...client, origin: 'https://evil.example' });
+      expect(rejected.status).toBe(403);
+    }
+
+    const allowed = await post(client);
+    expect(allowed.status).toBe(200);
+  });
+
   it('answers 429 with Retry-After on /api/air as well', async () => {
     // Invalid queries still consume the limit, so no upstream call is needed.
     for (let i = 0; i < RATE_LIMITS.air.limit; i += 1) {

@@ -59,7 +59,7 @@ bundle by definition.
 | `LLM_ATTEMPT_TIMEOUT_MS` | no | Lower the per-attempt AI timeout. Clamped to 18000, so it can only be tightened. |
 | `UPSTASH_REDIS_REST_URL` | **yes (production)** | Distributed rate limiting. Without it production refuses to spend: `/api/plan` returns the labelled fallback plan, the other API routes return 503. |
 | `UPSTASH_REDIS_REST_TOKEN` | **yes (production)** | Same — both are needed. |
-| `APP_ORIGIN` | prod | Exact origin for same-origin checks, e.g. `https://cleanair.example`. |
+| `APP_ORIGIN` | prod | Exact origin (`scheme://host[:port]`) for same-origin checks, e.g. `https://cleanair.example`. Must include the scheme: a value that is not an absolute http(s) origin is reported at startup and makes every `POST /api/plan` return 403. Unset → the request `Host` is used. |
 
 ---
 
@@ -141,7 +141,7 @@ real key, and never commit them.
 | `GEMINI_API_KEY` | recommended | `replace-with-your-google-ai-studio-key` | Server-side LLM key. Unset → deterministic plans only; the app still works. |
 | `LLM_DISABLED` | no (default `false`) | `true` | Kill switch: `true` disables every outbound AI call and serves the labelled rule-based plan. |
 | `DAILY_LLM_CAP` | no (default `200`) | `200` | Daily LLM generation cap, counted in Upstash. A spend control independent of traffic. |
-| `APP_ORIGIN` | **yes in production** | `https://cleanair-companion.vercel.app` | Exact origin for the same-origin check; without it the request `Host` is used. |
+| `APP_ORIGIN` | **yes in production** | `https://cleanair-companion.vercel.app` | Exact origin for the same-origin check, scheme included (`scheme://host[:port]`). Without it the request `Host` is used. A malformed value is reported by `reportEnv()` and every `POST /api/plan` answers 403 — fail closed, never fail open. |
 | `LLM_ATTEMPT_TIMEOUT_MS` | no (default `18000`) | `18000` | Optional tightening of the per-attempt AI timeout. Clamped to 18000, so it can only be lowered. |
 
 `src/instrumentation.ts` runs `reportEnv()` once per server instance and logs a

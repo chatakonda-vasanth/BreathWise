@@ -32,8 +32,8 @@ third party directly — `connect-src 'self'`.
 
 | Threat | Example | Mitigation in this codebase |
 | --- | --- | --- |
-| **S**poofing | Forged client IP to dodge rate limits | In production the key comes only from Vercel-written headers: `x-vercel-forwarded-for`, then `x-real-ip`; a caller-supplied `x-forwarded-for` is ignored, so rotating it cannot reset a limit. Outside production `x-forwarded-for` is a last resort (leftmost entry, as Vercel documents). Unparseable/missing → one shared `unknown` bucket, never a bypass (`src/lib/http.ts`). Verified by `tests/unit/http.test.ts` and the spoofing test in `tests/unit/productionLimits.test.ts`. |
-| Spoofing | Cross-site form/script POSTing to `/api/plan` | `Origin` **required** on POST and compared to `APP_ORIGIN`/`Host`; `sec-fetch-site` must be same-origin; no CORS headers are ever emitted; `OPTIONS` → 403. |
+| **S**poofing | Forged client IP to dodge rate limits | In production the key comes only from Vercel-written headers: `x-vercel-forwarded-for`, then `x-real-ip`; a caller-supplied `x-forwarded-for` is ignored, so rotating it cannot reset a limit. Outside production `x-forwarded-for` is a last resort (leftmost entry, as Vercel documents). The address is then **canonicalised** (`canonicalIp`): IPv4 is rebuilt from its four octets and IPv6 is normalised, so spelling variants of one address cannot select different buckets, and platform headers are read from their last (proxy-appended) entry. Unparseable/missing → one shared `unknown` bucket, never a bypass (`src/lib/http.ts`). Verified by `tests/unit/http.test.ts` and the spoofing test in `tests/unit/productionLimits.test.ts`. |
+| Spoofing | Cross-site form/script POSTing to `/api/plan` | `Origin` **required** on POST and compared, as a full origin (scheme + host + port), to `APP_ORIGIN`; without `APP_ORIGIN` it is compared to the unforgeable `Host` header (`X-Forwarded-Host` is only a fallback for a proxy that rewrites `Host`, and only its last entry is used). A set-but-unparseable `APP_ORIGIN` fails closed. `sec-fetch-site` must be same-origin; no CORS headers are ever emitted; `OPTIONS` → 403. |
 | **T**ampering | Passing invented air data to the model | `/api/plan` accepts only profile + coordinates; the snapshot is re-fetched server-side. |
 | Tampering | Prompt injection via city names, profile or upstream data | No free-text field exists anywhere in the request path (an earlier draft accepted a display-only `locationLabel`; it was removed during self-audit as unused attack surface); all schemas are `strictObject` (unknown keys rejected); prompt data blocks are delimited and labelled untrusted; every upstream string is reduced to a strict character set before entering the prompt. |
 | Tampering | XSS via model output or place names | React text nodes only, `react/no-danger` lint rule, no `dangerouslySetInnerHTML` anywhere, `sanitizeText` strips tags/scripts/markdown link targets, CSP with nonces as backstop. |
@@ -82,8 +82,8 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | --- | --- | --- |
 | Key in client bundle | Server-only env; no `NEXT_PUBLIC_`; bundle grep | `npm run check:bundles` (scans `.next/static`, fails on key value/shape/server-only names) |
 | Committed secret | `.gitignore` (`*.env`), gitleaks in CI | `npm run secrets` |
-| Cross-site POST to `/api/plan` | Origin + `sec-fetch-site` enforcement, no CORS | `tests/unit/http.test.ts` (6 origin cases), `tests/e2e/smoke.spec.ts` (cross-origin → 403) |
-| IP spoofing to dodge limits | Trusted Vercel headers only, rightmost-hop fallback, hashing | `tests/unit/http.test.ts` (5 IP cases) |
+| Cross-site POST to `/api/plan` | `Host`-bound origin check (Host is a forbidden header), full-origin `APP_ORIGIN` pin, malformed pin fails closed, no CORS | `tests/unit/http.test.ts` (17 origin cases, incl. forged `X-Forwarded-Host` and scheme downgrade), `tests/e2e/smoke.spec.ts` (cross-origin → 403) |
+| IP spoofing to dodge limits | Trusted Vercel headers only (last entry), canonical IP → one bucket per address, hashing | `tests/unit/http.test.ts` (15 IP cases, incl. IPv6/IPv4 spelling variants) |
 | Unbounded LLM spend | Per-IP sliding window + daily cap + kill switch, fail closed | `tests/unit/rateLimit.test.ts`, `tests/unit/planService.test.ts` (cap, disabled, no key) |
 | Limiter outage | `withTimeout(1.5 s)`; production fails closed on **every** route, development degrades to memory with one warning | `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts` (plan → 200 labelled fallback, air/geocode → 503) |
 | Production deployed without Upstash | Startup env check logs the missing variable names; requests fail closed rather than running unlimited (`/api/health` answers 503, so monitoring sees it) | `tests/unit/envCheck.test.ts`, `tests/unit/productionLimits.test.ts`, `tests/unit/healthRoute.test.ts` |
@@ -99,6 +99,47 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | SW caching personalised data | `/api/` never intercepted | e2e assertion on `sw.js`, plus code review of `public/sw.js` |
 | Stale/dangerous AQI maths | Pure functions, unit tested | `tests/unit/aqi.test.ts`, `tests/unit/naqi.test.ts` |
 | Unsafe headers | Pure builder, unit tested | `tests/unit/security.test.ts`, e2e header assertions |
+
+## Independent review (phase 4): attempts to break each control
+
+A reviewer who did not write this code re-read the whole tree and this file, then
+tried to break every control: prompt injection through every input (profile
+fields, city names, upstream air data), cross-origin POSTs and `APP_ORIGIN`
+misconfiguration (missing, wrong scheme, trailing slash, subdomain lookalikes),
+oversized bodies and malformed or out-of-range coordinates, rate-limit bypass
+with spoofed/cased/variant forwarding headers, service-worker caching of `/api`,
+CSP bypasses, and secret leakage in bundles, logs, responses and history.
+
+**No critical finding.** Three high findings were found; all three are fixed and
+each fix has a regression test. Four lower findings were also fixed; the
+remaining accepted risks are recorded under
+[Known limitations](#known-limitations).
+
+### High findings (fixed)
+
+| # | Finding | Evidence | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| H1 | The same-origin check trusted a header the page itself can write. `checkOrigin` read `x-forwarded-host` **before** `Host`. `X-Forwarded-Host` is not a forbidden header name, so any page's `fetch()` can set it, while `Host` is forbidden and is the host the browser really addressed (the host its `Origin` was derived from). A cross-origin POST that also carries no `Sec-Fetch-Site` — Safari < 16.4, a proxy that strips it, any non-browser client — could present `Origin: https://evil.example` **and** `X-Forwarded-Host: evil.example` and be accepted, spending the owner's LLM budget from the browser. | The reviewed code read `request.headers.get('x-forwarded-host') ?? request.headers.get('host')`. The new test drives exactly that forged pair. | `Host` wins whenever present; `x-forwarded-host` is only a fallback for a proxy that rewrites `Host`, and only its **last** (proxy-appended) entry counts. | `tests/unit/http.test.ts` → "ignores a forged X-Forwarded-Host when Host disagrees", "uses the last X-Forwarded-Host entry when a proxy appends". |
+| H2 | `APP_ORIGIN` could be misconfigured into no protection at all, silently. Comparison used `new URL(configured).host`, which ignores the scheme, so `Origin: http://app.example` was accepted for a configured `https://app.example` (an attacker able to serve plain HTTP on that name, or a user lured to `http://`, passes the CSRF gate). And the commonest typo — a value with no scheme, `app.example` — threw inside the `try`, was swallowed, and fell through to the `Host` comparison: the pin the operator thought they had configured was never enforced, and nothing reported it. | `new URL('http://app.example').host === 'app.example'`; the old `catch { /* fall through to host comparison */ }`. | Full-origin comparison (`scheme://host:port`). A set-but-unparseable `APP_ORIGIN` now **fails closed** (403, outcome `invalid_config`), and `src/instrumentation.ts` reports the variable by name at startup. | `tests/unit/http.test.ts` → "requires the configured scheme, host and port to match exactly" (scheme downgrade, wrong port, `evil-cleanair.example`, `cleanair.example.evil.example`), "fails closed when APP_ORIGIN is not an absolute http(s) origin", "accepts a configured origin written with a trailing slash", "rejects an opaque or non-http Origin even with no APP_ORIGIN"; `tests/unit/envCheck.test.ts` → APP_ORIGIN reporting. |
+| H3 | The rate-limit bucket key was the raw header spelling, so one client could occupy many buckets. `hashIp` hashed the string as received; IPv6 has several equivalent forms (`2001:DB8::1`, `2001:db8:0:0:0:0:0:1`, `2001:0db8::0001`) and IPv4 tolerates leading zeros (`010.0.0.1`), each yielding a distinct Redis key. The same applied to a prepended value in a multi-value `x-vercel-forwarded-for` if the edge appends rather than replaces. Only reachable where the header is client-influenced (self-hosted deployment, proxy that appends, platform that does not overwrite), but a bucket per spelling defeats the limit by construction. | `tests/unit/http.test.ts` asserts one canonical key — and one hash — for five spellings of one address. | `canonicalIp()`: IPv4 rebuilt from its four numeric octets, IPv6 normalised through WHATWG URL serialisation (impossible forms are rejected and land in the shared `unknown` bucket). Platform headers are read from their last entry. | `tests/unit/http.test.ts` → "collapses every textual form of one IPv6 address to a single key", "collapses leading zeros in an IPv4 address", "takes the last entry of a platform forwarding header", "rejects IPv6 spellings the parser cannot normalise". |
+
+### Lower findings (fixed anyway, because the fix was small and testable)
+
+| # | Severity | Finding | Fix | Regression test |
+| --- | --- | --- | --- | --- |
+| M1 | Medium | The 8 KiB body cap was enforced only **after** `request.text()` had buffered the entire body, so a chunked request with no `Content-Length` was read to the end before being rejected. Vercel caps request bodies at 4.5 MB, so this was bounded in the documented deployment, but the mitigation claimed more than it did. | `readBoundedText` reads the stream chunk by chunk, cancels it the moment the cap is crossed, and never stores the excess. | `tests/unit/http.test.ts` → "stops reading an oversized chunked body and cancels the stream" (asserts the stream is cancelled with no `Content-Length` present). |
+| L1 | Low | `Content-Type` was matched with `includes('application/json')`, so `text/plain; x=application/json` was accepted. Harmless (the body still had to parse as JSON and pass a strict schema) but not the intended contract. | Exact media-type comparison after splitting parameters. | `tests/unit/http.test.ts` → "requires the media type itself to be application/json". |
+| L2 | Low | Geocoder rows were only checked for finite coordinates, and `timezone` was passed to the client unsanitised — inconsistent with the rule that every upstream string is reduced before use. An out-of-range latitude/longitude from a broken or hostile geocoder reached the UI and produced a 400 on the next `/api/air` call. | Rows outside the valid coordinate range are dropped; `timezone` goes through `sanitizeText`. | Covered by `tests/unit/air.test.ts` (geocode mapping and URL construction). |
+| L3 | Low | Client IPs are hashed with a fixed salt (`'cleanair'`), so the IPv4 space could be enumerated offline if a Redis key ever leaked. | Accepted: the key is a rate-limit bucket, contains no other data, and never appears in logs or responses. Documented as limitation 11. | — |
+| L4 | Low | `/api/plan` rate-limited **before** the origin check, so a cross-site POST — a plain `<form>` needs no preflight — spent the visitor's six-per-minute budget while being rejected 403. Nothing was spent upstream, but a page could deny a visitor the paid route for a minute. | Origin is checked first (cheap, no Redis command, no budget), then the limiter. | `tests/unit/productionLimits.test.ts` → "does not spend the request budget on rejected cross-site POSTs" (nine rejected cross-site POSTs, then a valid one still gets 200). |
+
+### Attempted and found sound (no change)
+
+* **Prompt injection, every input.** Profile fields are closed enums and bounded integers; there is still no free-text field in any request (a `locationLabel` is rejected as an unknown key). A city name is never put in the prompt — only its coordinates, rounded — and the geocode query is charset-restricted before it becomes a URL parameter. Upstream air data reaches the prompt only as `JSON.stringify` numbers plus a timezone reduced to `[A-Za-z0-9/_+\-]` and a timestamp reduced to `[0-9T:\-]`/regex-checked; `<AIR_DATA>`/`<PROFILE_DATA>`/`<DERIVED_DATA>` are labelled untrusted in both the system instruction and the block attributes. `tests/unit/prompt.test.ts` throws hostile timezone and time strings at it and asserts the closing tag count stays exactly one.
+* **CSP bypass.** No inline `<style>`/`style={}` or un-nonced `<script>` exists in the tree; there is no `dangerouslySetInnerHTML`, `innerHTML`, `eval`, `new Function`, `localStorage`, `sessionStorage` or `document.cookie` anywhere in `src/`; zod runs jitless so nothing probes `Function("")`; `object-src`, `frame-src`, `frame-ancestors`, `base-uri` and `form-action` are all locked down; `connect-src 'self'` means an injected string could not exfiltrate to a third party even if one executed.
+* **Service worker caching of `/api`.** `public/sw.js` returns before `respondWith` for any `/api/` pathname, for non-GET, for cross-origin and for credentialed requests, and caches only `response.ok && response.type === 'basic'` from `_next/static`, `/icons/`, the manifest and favicon. A casing trick (`/API/plan`) or a doubled slash cannot be cached either: neither is a cacheable asset path, so the handler ignores them. Verified by `scripts/smoke.sh` and the Cache Storage e2e test.
+* **Secrets.** No `NEXT_PUBLIC_` variable exists; the key travels only in the `x-goog-api-key` header; `logEvent` accepts no free-form data and the startup check logs names only; every error path returns one of nine generic codes. `tests/unit/keyHygiene.test.ts` makes the provider echo the key back in a 403 body and asserts it appears in neither the response nor the logs. History: `gitleaks git` over all commits, and no `.env` file has ever been added (`git log --all --diff-filter=A --name-only`).
+* **Oversized/malformed input.** Coordinates are regex-limited decimals in the query string (`1e2`, `0x10`, ``, `91`, `181` all 400) and `z.number().min().max()` in JSON, which zod rejects for `NaN` and `±Infinity` (verified directly against zod 4); unknown query keys and unknown body keys are 400.
 
 ## Self-audit findings and fixes
 
@@ -175,3 +216,23 @@ working tree, so a secret that was committed and later removed is still found.
    start, so the pinned version keeps the whole gate runnable.
 10. **The sample snapshot is fabricated** and only used behind an explicit
     label; it must never be mistaken for measurements.
+11. **Rate-limit keys use a fixed hash salt** (`hashIp`, salt `cleanair`). The
+    IPv4 space could therefore be enumerated offline if a Redis key leaked. The
+    key is only a bucket identifier: it is never logged, never returned and
+    attached to no other data, so the exposure is a bucket count, not an
+    identity.
+12. **Client-IP derivation assumes Vercel (or an equivalent front proxy) is the
+    outermost edge.** In production only `x-vercel-forwarded-for` and
+    `x-real-ip` are read, and only their last entry, because Vercel documents
+    that it overwrites them. A **self-hosted** production deployment must have
+    its proxy overwrite both headers; otherwise a client-supplied value could
+    select its own bucket. The `Host`-bound origin check is unaffected (Host is a
+    forbidden header). Deploying on Vercel, as the README documents, satisfies
+    this.
+13. **The proxy matcher excludes immutable build assets** (`_next/static`,
+    `_next/image`, `icons/`, `favicon.ico`), so those responses carry none of the
+    security headers — in particular no `X-Content-Type-Options: nosniff`. They
+    are our own immutable files served with correct content types, so there is
+    no injection path; adding them to the matcher would create a second header
+    source and the drift this file exists to prevent. Every document and every
+    `/api/*` response does carry them (asserted by the e2e and smoke tests).
