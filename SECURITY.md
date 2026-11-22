@@ -42,6 +42,7 @@ third party directly — `connect-src 'self'`.
 | **R**epudiation | No audit trail of abuse | Structured minimal logs (route, status, duration, outcome) with no location/profile/IP; intentionally not a personal-data log. |
 | **I**nformation disclosure | Key leaking into the browser bundle | Secrets are read only via `process.env` inside route handlers; nothing is `NEXT_PUBLIC_`; `scripts/check-client-bundles.mjs` fails the build if a key value, key shape or server-only variable name appears under `.next/static`. |
 | Information disclosure | Stack traces / upstream error bodies | Every route returns one of nine generic codes; upstream bodies are never forwarded; `logEvent` accepts no free-form data; the startup check logs variable names only, never values. |
+| Information disclosure | Reconnaissance through a status endpoint | `/api/health` returns exactly `{"status":"ok"}`: no environment variable names, no build/version string, no dependency or limiter details. It is rate limited (60/min per hashed IP) and fails closed with the same generic 503 when the limiter is unavailable, so it cannot be used as a free probe. |
 | Information disclosure | Location logging | Coordinates are rounded in `normaliseCoords` before any use, never logged, never persisted; the prompt excludes them. |
 | Information disclosure | Clickjacking / referrer leakage | `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` (the only external navigation is a `wa.me` share link, which needs no referrer). |
 | **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s. Production **requires** Upstash: missing or unreachable → every route fails closed (`/api/plan` 200 + labelled fallback with no model call; `/api/air`, `/api/geocode` 503 + `Retry-After`). Development-only memory limiter with a startup warning. Tests: `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts`. |
@@ -85,7 +86,8 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | IP spoofing to dodge limits | Trusted Vercel headers only, rightmost-hop fallback, hashing | `tests/unit/http.test.ts` (5 IP cases) |
 | Unbounded LLM spend | Per-IP sliding window + daily cap + kill switch, fail closed | `tests/unit/rateLimit.test.ts`, `tests/unit/planService.test.ts` (cap, disabled, no key) |
 | Limiter outage | `withTimeout(1.5 s)`; production fails closed on **every** route, development degrades to memory with one warning | `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts` (plan → 200 labelled fallback, air/geocode → 503) |
-| Production deployed without Upstash | Startup env check logs the missing variable names; requests fail closed rather than running unlimited | `tests/unit/envCheck.test.ts`, `tests/unit/productionLimits.test.ts` |
+| Production deployed without Upstash | Startup env check logs the missing variable names; requests fail closed rather than running unlimited (`/api/health` answers 503, so monitoring sees it) | `tests/unit/envCheck.test.ts`, `tests/unit/productionLimits.test.ts`, `tests/unit/healthRoute.test.ts` |
+| Deployed with broken headers or service worker | Nothing to drift: no `vercel.json`, headers come only from `src/proxy.ts` | `scripts/smoke.sh` (CSP, HSTS, nosniff, Referrer-Policy, Permissions-Policy, cross-origin 403, `/sw.js` has no `/api` cache path) |
 | Oversized body | 8 KiB cap, declared and actual length | `tests/unit/http.test.ts`, e2e oversized POST → 400/413 |
 | Platform kills the function (504 instead of guidance) | Explicit `maxDuration = 45` s (Hobby allows 300 s), 18 s per-attempt cap, 25 s total LLM budget, 5 s response margin — worst case 35 s — and every failure path returns a labelled fallback plan with HTTP 200 | `tests/unit/planRoute.test.ts` (simulated provider that only settles on abort: 200 + `fallbackReason: "timeout"`, one attempt, inside budget), `tests/unit/planService.test.ts` (budget exhausted, half-budget retry skip) |
 | Prompt injection | No free text; strict schemas; delimited untrusted blocks; sanitised upstream strings | `tests/unit/prompt.test.ts` (injection in timezone/current time), `tests/unit/schemas.test.ts` (unknown keys rejected) |
@@ -122,7 +124,12 @@ two outbound `fetch` call sites — both against hard-coded hosts with
 npm run lint && npm run typecheck && npm test
 npm run build && npm run test:e2e
 npm run audit && npm run secrets && npm run check:bundles
+# after a deploy, against the real origin:
+npm run smoke -- https://your-deployment.vercel.app
 ```
+
+`npm run secrets` scans the **full git history** (`gitleaks git`), not just the
+working tree, so a secret that was committed and later removed is still found.
 
 ## Known limitations
 

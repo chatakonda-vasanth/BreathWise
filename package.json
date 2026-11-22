@@ -19,7 +19,8 @@
     "test:e2e": "playwright test",
     "test:live": "vitest run --config vitest.live.config.ts",
     "audit": "npm audit --audit-level=low",
-    "secrets": "gitleaks detect --no-banner --redact -v",
+    "secrets": "gitleaks git --no-banner --redact -v",
+    "smoke": "bash scripts/smoke.sh",
     "check:bundles": "node scripts/check-client-bundles.mjs",
     "check": "npm run lint && npm run typecheck && npm run test"
   },

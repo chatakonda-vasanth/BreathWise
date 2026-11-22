@@ -63,6 +63,9 @@ export const RATE_LIMITS = {
   air: { limit: 60, windowMs: 60_000 },
   geocode: { limit: 30, windowMs: 60_000 },
   plan: { limit: 6, windowMs: 60_000 },
+  // Liveness probes and uptime monitors are frequent but tiny; one command per
+  // call (two when the sliding window rolls) keeps them inside the free tier.
+  health: { limit: 60, windowMs: 60_000 },
 } as const;
 
 /**

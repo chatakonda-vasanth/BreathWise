@@ -34,11 +34,12 @@ Node 20+ is required.
 | `npm run build` / `npm start` | Production build / serve |
 | `npm run lint` | ESLint (flat config, includes `react/no-danger`, `no-eval`) |
 | `npm run typecheck` | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) |
-| `npm test` | Vitest unit suite (145 tests) |
+| `npm test` | Vitest unit suite (185 tests) |
 | `npm run test:e2e` | Playwright smoke tests (needs `npm run build` first) |
 | `npm run test:live` | Live AI-path tests against the real Gemini API; auto-skipped when `GEMINI_API_KEY` is unset |
 | `npm run audit` | `npm audit` at every severity |
-| `npm run secrets` | gitleaks scan of the working tree |
+| `npm run secrets` | gitleaks scan of the full git history |
+| `npm run smoke -- <url>` | Post-deploy smoke test (headers, health, CORS, service worker) |
 | `npm run check:bundles` | Greps the client bundle for keys and secret env names |
 
 ---
@@ -106,13 +107,83 @@ server also labels the plan response `sample: true`.
 
 ---
 
-## Free-tier deployment (Vercel)
+## Deploy (Vercel)
 
-1. Push the repository, import it in Vercel as a Next.js project (zero config).
-2. Create a free Upstash Redis database, then add `UPSTASH_REDIS_REST_URL`,
-   `UPSTASH_REDIS_REST_TOKEN`, `APP_ORIGIN` (your production URL) and
-   `GEMINI_API_KEY` as Project → Settings → Environment Variables.
-3. Deploy. Nothing else is needed: there is no database, no migration, no cron.
+Zero config: there is no database, no migration, no cron, no server action and
+**no `vercel.json`**. Headers, CSP and the service worker are all set per request
+in `src/proxy.ts` and `public/sw.js`, so a `vercel.json` would only add a second
+place for security behaviour to drift out of sync. If one is ever needed, it must
+not define `headers`, `routes` or `redirects` that replace the proxy's CSP or any
+other security header listed in [`SECURITY.md`](SECURITY.md).
+
+### 1. Import and deploy
+
+1. Push the repository and import it in Vercel as a Next.js project. The preset
+   detects Next.js; keep the defaults (build `npm run build`, no output
+   directory override, Node 20+).
+2. Create a free Upstash Redis database, then add the variables below under
+   Project → Settings → Environment Variables for **Production** (add them to
+   Preview too if preview deployments should work).
+3. Deploy, then run the [smoke test](#3-post-deploy-smoke-test) against the URL
+   Vercel gives you.
+
+### 2. Environment variables
+
+The complete list. Every one is server-side only; the deployment never contains a
+`NEXT_PUBLIC_` value. The examples are **placeholders** — paste your own, never a
+real key, and never commit them.
+
+| Variable | Required | Safe example value | Purpose |
+| --- | --- | --- | --- |
+| `UPSTASH_REDIS_REST_URL` | **yes in production** | `https://example-12345.upstash.io` | Distributed rate limiting and the daily LLM counter. |
+| `UPSTASH_REDIS_REST_TOKEN` | **yes in production** | `replace-with-the-upstash-rest-token` | Same database; both are needed. |
+| `GEMINI_MODEL` | **yes** | `gemini-3.5-flash` | Model id, no `models/` prefix. Kept in the environment so a model change needs no redeploy of code. |
+| `GEMINI_API_KEY` | recommended | `replace-with-your-google-ai-studio-key` | Server-side LLM key. Unset → deterministic plans only; the app still works. |
+| `LLM_DISABLED` | no (default `false`) | `true` | Kill switch: `true` disables every outbound AI call and serves the labelled rule-based plan. |
+| `DAILY_LLM_CAP` | no (default `200`) | `200` | Daily LLM generation cap, counted in Upstash. A spend control independent of traffic. |
+| `APP_ORIGIN` | **yes in production** | `https://cleanair-companion.vercel.app` | Exact origin for the same-origin check; without it the request `Host` is used. |
+| `LLM_ATTEMPT_TIMEOUT_MS` | no (default `18000`) | `18000` | Optional tightening of the per-attempt AI timeout. Clamped to 18000, so it can only be lowered. |
+
+`src/instrumentation.ts` runs `reportEnv()` once per server instance and logs a
+clear error naming each missing variable and its consequence. It never logs a
+value. A missing `GEMINI_API_KEY` disables only the model path; the app does not
+crash.
+
+> **Production without Upstash is degraded, deliberately.** If
+> `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are missing, or Upstash
+> cannot be reached within 1.5 s, then:
+>
+> - `/api/air` and `/api/geocode` return **503** (`service_unavailable`, generic
+>   body, `Retry-After`) — they do **not** serve data unlimited;
+> - `/api/plan` returns **HTTP 200** with the labelled rule-based plan
+>   (`meta.fallbackReason: "limiter_unavailable"`) and never calls the model;
+> - `/api/health` returns **503**, so the smoke test and any uptime monitor see
+>   the misconfiguration instead of a green check.
+>
+> No route is ever left without a rate limit. Development is the only place the
+> per-instance in-memory limiter runs, and it prints one startup warning.
+
+### 3. Post-deploy smoke test
+
+```bash
+npm run smoke -- https://your-deployment.vercel.app
+# equivalent: scripts/smoke.sh https://your-deployment.vercel.app
+```
+
+The script needs no credentials and only reads public responses. It exits non-zero
+if any check fails and prints what it actually received:
+
+| Check | Expected |
+| --- | --- |
+| `GET /` | 200 |
+| Security headers on `/` | `Content-Security-Policy` (`default-src 'self'`), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` (`geolocation=(self)`) |
+| `GET /api/health` | 200 with exactly `{"status":"ok"}` |
+| `POST /api/plan` with `Origin: https://evil.example` | 403, and no `Access-Control-Allow-Origin` header |
+| `GET /sw.js` | 200, skips every `/api/` request, no cache write or precache names `/api` |
+
+A 503 from `/api/health` during the smoke test means the rate limiter is not
+configured or not reachable — the deployment is up but refusing to serve API
+traffic, which is the intended fail-closed behaviour.
 
 Free-tier notes: Vercel's hobby plan is non-commercial; Open-Meteo's free API is
 also for **non-commercial use** (10k calls/day, 5k/hour, 600/minute).
@@ -296,7 +367,7 @@ paid Upstash plan — the code needs no change.
 ## Project layout
 
 ```
-src/app/            layout, page, globals.css, API routes (air, geocode, plan)
+src/app/            layout, page, globals.css, API routes (air, geocode, health, plan)
 src/components/     client UI (app shell, air panel, chart, profile, plan)
 src/lib/            aqi, naqi, geo, schemas, prompt, gemini, planService,
                     fallbackPlan, planContent, i18n, rateLimit, sanitize,
@@ -306,5 +377,5 @@ public/             manifest.webmanifest, sw.js, generated icons
 tests/unit/         Vitest suites (offline)
 tests/live/         key-gated live AI tests (real Gemini calls via /api/plan)
 tests/e2e/          Playwright smoke tests
-scripts/            icon generator, client-bundle secret scan
+scripts/            icon generator, client-bundle secret scan, post-deploy smoke test
 ```
