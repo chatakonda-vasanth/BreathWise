@@ -41,6 +41,10 @@
   ],
   "exclude": [
     "node_modules",
-    ".next"
+    ".next",
+    "freebuff.open-next.config.ts",
+    "freebuff.wrangler.jsonc",
+    "freebuff-sites-build",
+    ".open-next"
   ]
 }

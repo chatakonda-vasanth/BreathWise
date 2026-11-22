@@ -48,7 +48,7 @@ third party directly — `connect-src 'self'`.
 | **D**enial of service | Flooding the paid route | Sliding-window limit per hashed IP (`6/min`) **plus** daily cap in Upstash; limiter calls bounded at 1.5 s. Production **requires** Upstash: missing or unreachable → every route fails closed (`/api/plan` 200 + labelled fallback with no model call; `/api/air`, `/api/geocode` 503 + `Retry-After`). Development-only memory limiter with a startup warning. Tests: `tests/unit/rateLimit.test.ts`, `tests/unit/productionLimits.test.ts`. |
 | DoS | Oversized bodies | `readJsonBody` rejects on declared `Content-Length` and on the actual byte length (8 KiB cap). |
 | DoS | Slowloris-style outbound hangs | `AbortSignal.timeout(5000)` for Open-Meteo, 18 s per model attempt and a 25 s shared budget (a timeout is never retried and a first attempt slower than half the budget skips the retry, so one request cannot hang for 2x the budget), 1.5 s for Redis. |
-| **E**levation of privilege | SSRF to cloud metadata endpoints | Hosts are constants (`air-quality-api.open-meteo.com`, `geocoding-api.open-meteo.com`, `generativelanguage.googleapis.com`); query values are validated numbers; `redirect: 'error'`; the model has no tools (`functionCallingConfig.mode = 'NONE'`). |
+| **E**levation of privilege | SSRF to cloud metadata endpoints | Hosts are constants (`air-quality-api.open-meteo.com`, `geocoding-api.open-meteo.com`, `generativelanguage.googleapis.com`); query values are validated numbers; `redirect: 'manual'` with every 3xx rejected (`redirect: 'error'` is Node-only and workerd refuses it, which broke the deployed API); the model has no tools (`functionCallingConfig.mode = 'NONE'`). |
 | Elevation of privilege | Runtime code generation in the browser | `z.config({ jitless: true })` (`src/lib/zod-jitless.ts`) so zod never probes with `Function("")`; no `eval`/`new Function` in app code; CSP forbids both. |
 | Elevation of privilege | Reaching internal services via user-supplied URL | No endpoint accepts a URL. The `airQuerySchema`/`geocodeQuerySchema` reject unknown query keys, so `?url=` is a 400. |
 
@@ -94,7 +94,7 @@ Fast Refresh needs them; that is gated on `NODE_ENV`.
 | Model returns medication advice | Regex guard → fallback | `tests/unit/sanitize.test.ts`, `tests/unit/planService.test.ts` (`medical_content`) |
 | Model returns wrong language | Script ratio check → fallback | `tests/unit/planService.test.ts` (`lang_mismatch`), `tests/unit/sanitize.test.ts` |
 | XSS from model/place names | Text-only rendering, sanitisation, CSP | `tests/unit/sanitize.test.ts`, e2e malicious place name renders as text |
-| SSRF | Fixed hosts, numeric-only params, `redirect: 'error'` | `tests/unit/air.test.ts` (URL construction, out-of-range coords never fetch) |
+| SSRF | Fixed hosts, numeric-only params, `redirect: 'manual'`, any 3xx rejected | `tests/unit/air.test.ts` (URL construction, out-of-range coords never fetch, options workerd accepts, redirect rejected), `tests/unit/gemini.test.ts` (same two transport checks) |
 | Error leakage | Generic codes only | `tests/unit/planService.test.ts` (403 body not echoed), e2e (no `stack` in body) |
 | SW caching personalised data | `/api/` never intercepted | e2e assertion on `sw.js`, plus code review of `public/sw.js` |
 | Stale/dangerous AQI maths | Pure functions, unit tested | `tests/unit/aqi.test.ts`, `tests/unit/naqi.test.ts` |
@@ -157,7 +157,7 @@ Verified clean during the same pass (no findings): no `dangerouslySetInnerHTML`,
 no `innerHTML`, no `eval`/`new Function`, no `localStorage`/`sessionStorage`/
 `document.cookie`, no `NEXT_PUBLIC_`, no `Access-Control-Allow-*` header, and only
 two outbound `fetch` call sites — both against hard-coded hosts with
-`redirect: 'error'`.
+`redirect: 'manual'` and any 3xx rejected.
 
 ## Auditing this project
 

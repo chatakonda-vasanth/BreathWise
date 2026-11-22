@@ -39,3 +39,8 @@ Thumbs.db
 # logs
 *.log
 npm-debug.log*
+/freebuff-sites-build/
+/.open-next/
+/.wrangler/
+/freebuff.open-next.config.ts
+/freebuff.wrangler.jsonc

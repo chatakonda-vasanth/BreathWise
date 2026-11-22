@@ -127,6 +127,37 @@ describe('getAirSnapshot', () => {
     await expect(getAirSnapshot(12, 12)).rejects.toBeInstanceOf(UpstreamError);
   });
 
+  // Regression: workerd (Cloudflare Workers / OpenNext) rejects
+  // `redirect: 'error'` with "Invalid redirect value" before the request is
+  // made, which made every deployed /api/air and /api/geocode call return 502.
+  it('sends only fetch options that workerd accepts', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload()), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getAirSnapshot(13.13, 80.27);
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.redirect).toBe('manual');
+    expect(init?.cache).toBe('no-store');
+  });
+
+  it('rejects a redirect instead of following it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'https://169.254.169.254/latest/meta-data/' },
+        }),
+      ),
+    );
+    await expect(getAirSnapshot(14.14, 80.27)).rejects.toBeInstanceOf(UpstreamError);
+  });
+
   it('refuses out-of-range coordinates before any fetch', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);

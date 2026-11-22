@@ -83,13 +83,20 @@ async function fetchJson(url: string): Promise<unknown> {
       method: 'GET',
       headers: { accept: 'application/json' },
       // Never follow a redirect away from the allow-listed host.
-      redirect: 'error',
+      //
+      // `redirect: 'error'` is a Node-only extension: workerd (Cloudflare
+      // Workers / OpenNext) throws "Invalid redirect value" before the request
+      // is made, which turned every live lookup into a 502 in production.
+      // 'manual' is portable and keeps the same guarantee — a 3xx response is
+      // surfaced instead of followed, and rejected just below.
+      redirect: 'manual',
       cache: 'no-store',
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
   } catch {
     throw new UpstreamError();
   }
+  if (response.status >= 300 && response.status < 400) throw new UpstreamError();
   if (!response.ok) throw new UpstreamError();
   try {
     return (await response.json()) as unknown;

@@ -182,7 +182,9 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
         'x-goog-api-key': apiKey,
       },
       body: JSON.stringify(body),
-      redirect: 'error',
+      // Portable manual redirect handling: workerd rejects `redirect: 'error'`
+      // outright, so a 3xx is returned and rejected below instead.
+      redirect: 'manual',
       cache: 'no-store',
       signal: AbortSignal.timeout(args.timeoutMs ?? LLM_ATTEMPT_TIMEOUT_MS),
     });
@@ -193,6 +195,9 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
     throw new LlmError('upstream_error');
   }
 
+  if (response.status >= 300 && response.status < 400) {
+    throw new LlmError('upstream_error');
+  }
   if (response.status === 429) throw new LlmError('rate_limited');
   if (!response.ok) throw new LlmError('upstream_error');
 
