@@ -33,14 +33,19 @@ test('a malicious city name cannot break the flow', async ({ page }) => {
   await page.getByRole('searchbox').fill('Delhi');
   await page.getByRole('button', { name: /^Search$/ }).click();
 
-  const option = page.getByRole('listitem').getByRole('button', { name: /Delhi/ }).first();
+  const option = page
+    .getByRole('listitem')
+    .getByRole('button', { name: /Delhi/ })
+    .first();
   await expect(option).toBeVisible();
 
   // The payload was sanitised server-side: it renders as text, and no script ran.
   await expect(page.locator('img[src="x"]')).toHaveCount(0);
 });
 
-test('search a city, see AQI, generate a plan via the labelled fallback', async ({ page }) => {
+test('search a city, see AQI, generate a plan via the labelled fallback', async ({
+  page,
+}) => {
   const requests: string[] = [];
   page.on('request', (request) => {
     if (request.url().includes('/api/')) requests.push(request.url());
@@ -94,7 +99,10 @@ test('search a city, see AQI, generate a plan via the labelled fallback', async 
   expect(requests.some((url) => url.includes('/api/plan'))).toBe(true);
 });
 
-test('API rejects cross-origin and unvalidated requests', async ({ request, baseURL }) => {
+test('API rejects cross-origin and unvalidated requests', async ({
+  request,
+  baseURL,
+}) => {
   const crossOrigin = await request.post(`${baseURL}/api/plan`, {
     headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
     data: { profile: {}, lat: 0, lon: 0 },
@@ -103,11 +111,33 @@ test('API rejects cross-origin and unvalidated requests', async ({ request, base
   const body = await crossOrigin.json();
   expect(JSON.stringify(body)).not.toContain('stack');
 
-  const badCoords = await request.get(`${baseURL}/api/air?lat=999&lon=0`);
-  expect(badCoords.status()).toBe(400);
+  // A well-formed request tells us which contract applies. This suite runs the
+  // production build, where a missing Upstash limiter fails closed with 503 for
+  // /api/air (documented in SECURITY.md and covered by unit tests), and that
+  // refusal legitimately happens before input validation.
+  const probe = await request.get(`${baseURL}/api/air?lat=28.61&lon=77.21`);
+  expect([200, 502, 503]).toContain(probe.status());
+  const limiterDown = probe.status() === 503;
 
-  const unknownField = await request.get(`${baseURL}/api/air?lat=10&lon=10&url=http://169.254.169.254/`);
-  expect(unknownField.status()).toBe(400);
+  const badCoords = await request.get(`${baseURL}/api/air?lat=999&lon=0`);
+  const unknownField = await request.get(
+    `${baseURL}/api/air?lat=10&lon=10&url=http://169.254.169.254/`,
+  );
+
+  if (limiterDown) {
+    // No allowance was verified, so nothing may reach upstream: a generic 503,
+    // a Retry-After, and no internal detail in the body.
+    for (const response of [badCoords, unknownField]) {
+      expect(response.status()).toBe(503);
+      expect(response.headers()['retry-after']).toMatch(/^\d+$/);
+      const body = (await response.json()) as { error: string; message: string };
+      expect(body.error).toBe('service_unavailable');
+      expect(body.message).not.toMatch(/upstash|redis|limiter/i);
+    }
+  } else {
+    expect(badCoords.status()).toBe(400);
+    expect(unknownField.status()).toBe(400);
+  }
 
   const tooBig = await request.post(`${baseURL}/api/plan`, {
     headers: {
@@ -139,7 +169,7 @@ test('the service worker never caches API responses', async ({ request, baseURL 
   const response = await request.get(`${baseURL}/sw.js`);
   expect(response.status()).toBe(200);
   const body = await response.text();
-  expect(body).toContain("/api/");
+  expect(body).toContain('/api/');
   expect(body).toContain('pathname.startsWith');
 });
 
@@ -161,7 +191,9 @@ test('the service worker registers and stores no API data in Cache Storage', asy
     const response = await fetch('/api/air?lat=19.08&lon=72.88');
     return response.status;
   });
-  expect([200, 502]).toContain(apiStatus);
+  // Only the caching behaviour is asserted here; the status may be live data,
+  // an upstream failure, or the documented fail-closed 503 without Upstash.
+  expect([200, 502, 503]).toContain(apiStatus);
 
   const apiInCache = await page.evaluate(async () => {
     const names = await caches.keys();
