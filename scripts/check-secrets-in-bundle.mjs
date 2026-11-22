@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Fail the deployment if a secret value survived into the uploaded output.
+ * Fail the deployment if secret material survived into the uploaded output.
  *
  *   node scripts/check-secrets-in-bundle.mjs
  *   npm run check:secrets-in-bundle
@@ -10,13 +10,18 @@
  * script. The app now reads configuration through `src/lib/env.ts`, and the
  * hosted build must run with no `.env.local` present.
  *
- * This check is the proof step: values are read from the environment and from
- * `.env.local` when that file exists, then searched for in the generated
- * deployment output. Run it AFTER a build that had no `.env.local` in the tree.
+ * This is the proof step. Values come from the environment and from
+ * `.env.local` when that file exists, then every text file in the generated
+ * deployment output is searched for them. Run it AFTER a build, i.e. after the
+ * build that had no `.env.local` in the tree.
  *
- * A value is never printed — only the variable name, the file and the count.
- * Exit status: 0 = clean, 1 = a secret or a server-only variable name leaked,
- * 2 = nothing to scan.
+ * `GEMINI_MODEL` is not a credential, and its built-in default is compiled in on
+ * purpose (`src/lib/constants.ts`); a match equal to that default is reported
+ * as expected. A *different* configured model id appearing in the bundle is a
+ * real embed and fails, exactly like a key or a token would.
+ *
+ * Values are never printed — only variable names, files and counts.
+ * Exit status: 0 = clean, 1 = secret material embedded, 2 = nothing to scan.
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -33,9 +38,8 @@ const SERVER_ONLY_NAMES = [
   'APP_ORIGIN',
 ];
 
-/** Unambiguous Google API key shape, as a second, value-independent check. */
+/** Unambiguous Google API key shape, as a value-independent second check. */
 const GOOGLE_KEY_SHAPE = /AIza[0-9A-Za-z_-]{30,}/g;
-
 const MIN_VALUE_LENGTH = 8;
 
 function parseDotEnv(path) {
@@ -59,6 +63,16 @@ function parseDotEnv(path) {
   return values;
 }
 
+/** The built-in model id that is expected to be compiled into the bundle. */
+function compiledModelDefault() {
+  try {
+    const source = readFileSync('src/lib/constants.ts', 'utf8');
+    return /DEFAULT_GEMINI_MODEL\s*=\s*'([^']+)'/.exec(source)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function filesUnder(dir) {
   if (!existsSync(dir)) return [];
   const out = [];
@@ -76,15 +90,14 @@ function textOf(path) {
   return readFileSync(path, 'latin1');
 }
 
+const modelDefault = compiledModelDefault();
 const known = new Map();
+const fromDotEnv = parseDotEnv('.env.local');
+
 for (const name of SERVER_ONLY_NAMES) {
-  const fromEnv = process.env[name];
-  if (fromEnv && fromEnv.length >= MIN_VALUE_LENGTH) known.set(name, fromEnv);
-}
-for (const [name, value] of Object.entries(parseDotEnv('.env.local'))) {
-  if (SERVER_ONLY_NAMES.includes(name) && value.length >= MIN_VALUE_LENGTH) {
-    if (!known.has(name)) known.set(name, value);
-  }
+  const candidates = [process.env[name], fromDotEnv[name]];
+  const value = candidates.find((candidate) => candidate && candidate.length >= MIN_VALUE_LENGTH);
+  if (value) known.set(name, value);
 }
 
 const scannedFiles = [...new Set(BUILD_DIRS.flatMap(filesUnder))];
@@ -95,7 +108,9 @@ if (scannedFiles.length === 0) {
 }
 
 const assetFiles = new Set(ASSET_DIRS.flatMap(filesUnder));
-const leaks = [];
+const failures = [];
+const expected = [];
+const counts = new Map([...known.keys()].map((name) => [name, 0]));
 let bytes = 0;
 
 for (const file of scannedFiles) {
@@ -105,45 +120,62 @@ for (const file of scannedFiles) {
   const where = relative(process.cwd(), file);
 
   for (const [name, value] of known) {
-    const index = text.indexOf(value);
-    if (index !== -1) {
-      // Report the line number only; never the surrounding bytes.
+    let index = text.indexOf(value);
+    let hits = 0;
+    while (index !== -1) {
+      hits += 1;
       const line = text.slice(0, index).split('\n').length;
-      leaks.push({ where, name, line, kind: 'value' });
+      const isCompiledDefault = name === 'GEMINI_MODEL' && value === modelDefault;
+      const entry = { where, name, line, kind: isCompiledDefault ? 'compiled default' : 'value' };
+      (isCompiledDefault ? expected : failures).push(entry);
+      index = text.indexOf(value, index + value.length);
     }
+    counts.set(name, (counts.get(name) ?? 0) + hits);
   }
 
-  if (GOOGLE_KEY_SHAPE.test(text)) {
-    leaks.push({ where, name: 'Google API key shape', kind: 'shape' });
+  const shapes = text.match(GOOGLE_KEY_SHAPE) ?? [];
+  for (const shape of shapes) {
+    const line = text.slice(0, text.indexOf(shape)).split('\n').length;
+    failures.push({ where, name: 'Google API key shape', line, kind: 'shape' });
   }
-  GOOGLE_KEY_SHAPE.lastIndex = 0;
 
-  // A server-only variable name in anything the browser can download is a
+  // A server-only variable name inside anything the browser downloads is a
   // design error even when the value itself is absent.
   if (assetFiles.has(file)) {
     for (const name of SERVER_ONLY_NAMES) {
-      if (text.includes(name)) leaks.push({ where, name, kind: 'name-in-asset' });
+      if (text.includes(name)) failures.push({ where, name, kind: 'name in asset' });
     }
   }
 }
 
 console.log('Secret scan of deployment output');
-console.log(`  files scanned: ${scannedFiles.length} (${(bytes / 1024 / 1024).toFixed(2)} MiB of text)`);
+console.log(
+  `  files scanned: ${scannedFiles.length} (${(bytes / 1024 / 1024).toFixed(2)} MiB of text)`,
+);
 for (const name of SERVER_ONLY_NAMES) {
   const value = known.get(name);
-  console.log(
-    value
-      ? `  ${name}: value known (${value.length} chars) — searched for its exact value`
-      : `  ${name}: no value available — name/shape scan only`,
-  );
+  if (!value) {
+    console.log(`  ${name}: no value available — name/shape scan only, 0 name hits`);
+    continue;
+  }
+  const label =
+    name === 'GEMINI_MODEL' && value === modelDefault
+      ? `equals the compiled-in default (${modelDefault}), so occurrences are expected`
+      : 'searched for its exact value';
+  console.log(`  ${name}: value known (${value.length} chars) — ${label}; hits: ${counts.get(name)}`);
 }
-console.log(`  Google API key shape: searched (${leaks.filter((l) => l.kind === 'shape').length} hits)`);
+console.log(`  Google API key shape: ${failures.filter((e) => e.kind === 'shape').length} hit(s)`);
 
-if (leaks.length > 0) {
+if (expected.length > 0) {
+  const files = [...new Set(expected.map((entry) => entry.where))];
+  console.log(`\nNOTE: ${expected.length} expected hit(s) in ${files.length} file(s):`);
+  for (const file of files) console.log(`  ${file}  (compiled default model id)`);
+}
+
+if (failures.length > 0) {
   console.error('\nFAIL: secret material found in deployment output');
-  for (const leak of leaks) {
-    const line = leak.line ? `:${leak.line}` : '';
-    console.error(`  ${leak.where}${line}  ${leak.name} (${leak.kind})`);
+  for (const item of failures) {
+    console.error(`  ${item.where}:${item.line}  ${item.name} (${item.kind})`);
   }
   process.exit(1);
 }
