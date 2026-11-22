@@ -5,6 +5,7 @@ import {
   LLM_RETRY_MIN_REMAINING_MS,
   LLM_TOTAL_BUDGET_MS,
 } from './constants';
+import { readEnv } from './env';
 import { medicalAlertFor, buildFallbackPlan, type FallbackReason } from './fallbackPlan';
 import { LlmError, callGemini, parseJsonText } from './gemini';
 import { sanitizePlan, looksLikeMedicalAdvice, scriptMatches } from './sanitize';
@@ -44,12 +45,12 @@ export interface GeneratePlanArgs {
 }
 
 function dailyCap(): number {
-  const parsed = Number(process.env.DAILY_LLM_CAP ?? '');
+  const parsed = Number(readEnv('DAILY_LLM_CAP') ?? '');
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_DAILY_LLM_CAP;
 }
 
 export function llmDisabled(): boolean {
-  return process.env.LLM_DISABLED?.trim().toLowerCase() === 'true';
+  return readEnv('LLM_DISABLED')?.trim().toLowerCase() === 'true';
 }
 
 /**
@@ -58,7 +59,7 @@ export function llmDisabled(): boolean {
  * no configuration can make one attempt outlive the function budget.
  */
 export function attemptTimeoutMs(): number {
-  const parsed = Number(process.env.LLM_ATTEMPT_TIMEOUT_MS ?? '');
+  const parsed = Number(readEnv('LLM_ATTEMPT_TIMEOUT_MS') ?? '');
   if (!Number.isFinite(parsed) || parsed <= 0) return LLM_ATTEMPT_TIMEOUT_MS;
   return Math.max(1, Math.min(Math.floor(parsed), LLM_ATTEMPT_TIMEOUT_MS));
 }
@@ -173,7 +174,7 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
     return { plan: fallback(args, 'llm_disabled'), usedLlm: false, reason: 'llm_disabled' };
   }
 
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  const apiKey = readEnv('GEMINI_API_KEY')?.trim();
   if (!apiKey) {
     return { plan: fallback(args, 'no_api_key'), usedLlm: false, reason: 'no_api_key' };
   }

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { MAX_BODY_BYTES } from './constants';
+import { readEnv } from './env';
 
 /** Generic, non-leaking API responses. Clients never see internals. */
 export type ErrorCode =
@@ -208,7 +209,7 @@ export function checkOrigin(request: Request): OriginCheck {
   // "null" (sandboxed frame), "file://", a bare host name or anything odd fails.
   if (!requestOrigin) return { ok: false, reason: 'mismatch' };
 
-  const configured = process.env.APP_ORIGIN?.trim();
+  const configured = readEnv('APP_ORIGIN')?.trim();
   if (configured) {
     // The operator pinned one origin: scheme, host and port must all match. An
     // unparseable value fails closed instead of silently unpinning the check.

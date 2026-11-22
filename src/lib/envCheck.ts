@@ -1,4 +1,5 @@
 import { DEFAULT_GEMINI_MODEL } from './constants';
+import { readEnv } from './env';
 import { isValidOrigin } from './http';
 import { warnMemoryLimiterOnce } from './rateLimit';
 
@@ -37,12 +38,30 @@ export interface EnvReport {
   appOrigin: 'unset' | 'valid' | 'invalid';
 }
 
+/**
+ * Snapshot of the configuration names this check reports on.
+ *
+ * Built through `readEnv` (dynamic lookup) rather than read as `process.env`
+ * literals, so the startup report reflects the running Worker's secrets instead
+ * of build-time values baked into the bundle.
+ */
+function liveEnvSource(): EnvSource {
+  const source: EnvSource = {};
+  const nodeEnv = process.env.NODE_ENV;
+  if (nodeEnv !== undefined) source.NODE_ENV = nodeEnv;
+  for (const name of [...REQUIRED_ENV, 'APP_ORIGIN'] as const) {
+    const value = readEnv(name);
+    if (value !== undefined) source[name] = value;
+  }
+  return source;
+}
+
 function isSet(source: EnvSource, name: RequiredEnvName): boolean {
   return Boolean(source[name]?.trim());
 }
 
 export function inspectEnv(
-  source: EnvSource = process.env,
+  source: EnvSource = liveEnvSource(),
   production: boolean = source.NODE_ENV === 'production',
 ): EnvReport {
   const missing = REQUIRED_ENV.filter((name) => !isSet(source, name));
@@ -87,7 +106,7 @@ function consequenceOf(name: RequiredEnvName, production: boolean): string {
  * Log the startup report. Returns the structured result so callers (and tests)
  * can assert on it without parsing console output.
  */
-export function reportEnv(source: EnvSource = process.env): EnvReport {
+export function reportEnv(source: EnvSource = liveEnvSource()): EnvReport {
   const report = inspectEnv(source, source.NODE_ENV === 'production');
 
   for (const name of report.missing) {

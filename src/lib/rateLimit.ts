@@ -1,5 +1,6 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import { readEnv } from './env';
 import { hashIp } from './http';
 
 /**
@@ -84,8 +85,7 @@ export function isProductionRuntime(): boolean {
 
 export function upstashConfigured(): boolean {
   return Boolean(
-    process.env.UPSTASH_REDIS_REST_URL?.trim() &&
-      process.env.UPSTASH_REDIS_REST_TOKEN?.trim(),
+    readEnv('UPSTASH_REDIS_REST_URL')?.trim() && readEnv('UPSTASH_REDIS_REST_TOKEN')?.trim(),
   );
 }
 
@@ -120,8 +120,8 @@ function getRedis(): Redis | null {
   if (!upstashConfigured()) return null;
   if (!redisClient) {
     redisClient = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL as string,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN as string,
+      url: readEnv('UPSTASH_REDIS_REST_URL') as string,
+      token: readEnv('UPSTASH_REDIS_REST_TOKEN') as string,
     });
   }
   return redisClient;

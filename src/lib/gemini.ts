@@ -1,4 +1,5 @@
 import { DEFAULT_GEMINI_MODEL, GEMINI_HOST, LLM_ATTEMPT_TIMEOUT_MS } from './constants';
+import { readEnv } from './env';
 
 /**
  * Gemini generateContent client.
@@ -29,7 +30,7 @@ export class LlmError extends Error {
 const SAFE_MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
 export function getModelId(): string {
-  const configured = process.env.GEMINI_MODEL?.trim();
+  const configured = readEnv('GEMINI_MODEL')?.trim();
   if (configured && SAFE_MODEL_ID.test(configured)) return configured;
   return DEFAULT_GEMINI_MODEL;
 }
