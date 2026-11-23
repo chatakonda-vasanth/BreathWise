@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { fallbackReasonLabel, SEVERITY_LABELS, t, tList } from '@/lib/i18n';
 import type { Language, Plan, Recommendation } from '@/lib/types';
@@ -113,6 +113,23 @@ export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
   const [copied, setCopied] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // Cancel any in-flight speech when the view unmounts, otherwise the browser
+  // keeps talking after the plan is gone.
+  useEffect(() => {
+    return () => {
+      const active = utteranceRef.current;
+      if (active) {
+        active.onend = null;
+        active.onerror = null;
+        utteranceRef.current = null;
+      }
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
 
   const text = planToText(plan, lang);
   const colour = BAND_COLOURS[plan.severity];
@@ -151,14 +168,47 @@ export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
       utterance.voice = voice;
       utterance.lang = voice.lang;
     }
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => {
+    utterance.onend = () => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
       setSpeaking(false);
+    };
+    utterance.onerror = (event) => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
+      setSpeaking(false);
+      // A user-initiated stop surfaces as 'canceled'/'interrupted' in some
+      // browsers; that is not a failure, so do not report it as one.
+      if (event.error === 'canceled' || event.error === 'interrupted') return;
       setSpeechError(t(lang, 'readUnavailable'));
     };
     synth.cancel();
+    utteranceRef.current = utterance;
     synth.speak(utterance);
     setSpeaking(true);
+  }
+
+  function stopReading() {
+    const active = utteranceRef.current;
+    if (active) {
+      // Detach handlers first so the cancel does not fire an error/end that
+      // would flip the button back into 'read aloud' state unexpectedly.
+      active.onend = null;
+      active.onerror = null;
+      utteranceRef.current = null;
+    }
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeaking(false);
+  }
+
+  function toggleReading() {
+    if (speaking) {
+      stopReading();
+      return;
+    }
+    readAloud();
   }
 
   const whatsappHref = `https://wa.me/?text=${encodeURIComponent(text.slice(0, 3500))}`;
@@ -272,7 +322,7 @@ export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
       </section>
 
       <div className="mt-4 flex flex-wrap gap-2 no-print">
-        <button type="button" className="btn" onClick={readAloud}>
+        <button type="button" className="btn" onClick={toggleReading} aria-pressed={speaking}>
           {speaking ? t(lang, 'stopReading') : t(lang, 'readAloud')}
         </button>
         <button type="button" className="btn" onClick={copyText}>
