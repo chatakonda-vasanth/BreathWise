@@ -45,9 +45,12 @@ afterEach(() => {
 describe('outbound request', () => {
   it('puts the key in the x-goog-api-key header and nowhere in the URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{}' }] } }] }), {
-        status: 200,
-      }),
+      new Response(
+        JSON.stringify({ candidates: [{ content: { parts: [{ text: '{}' }] } }] }),
+        {
+          status: 200,
+        },
+      ),
     );
     vi.stubGlobal('fetch', fetchMock);
 
@@ -67,9 +70,12 @@ describe('failure paths', () => {
     {
       name: 'a rejected key that the provider echoes back',
       respond: async () =>
-        new Response(JSON.stringify({ error: { message: `API key not valid: ${SENTINEL}` } }), {
-          status: 403,
-        }),
+        new Response(
+          JSON.stringify({ error: { message: `API key not valid: ${SENTINEL}` } }),
+          {
+            status: 403,
+          },
+        ),
     },
     { name: 'a rate limit', respond: async () => new Response('{}', { status: 429 }) },
     {
@@ -113,9 +119,12 @@ describe('failure paths', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ error: { message: `API key not valid: ${SENTINEL}` } }), {
-          status: 403,
-        }),
+        new Response(
+          JSON.stringify({ error: { message: `API key not valid: ${SENTINEL}` } }),
+          {
+            status: 403,
+          },
+        ),
       ),
     );
 

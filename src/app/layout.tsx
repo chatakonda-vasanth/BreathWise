@@ -52,16 +52,15 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   // Nonce-based CSP requires dynamic rendering (documented tradeoff).
   await connection();
 
   return (
-    <html lang="en" className={`${inter.variable} ${devanagari.variable} ${telugu.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${devanagari.variable} ${telugu.variable}`}
+    >
       <body>{children}</body>
     </html>
   );

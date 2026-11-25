@@ -120,7 +120,9 @@ describe('production: missing Upstash fails closed', () => {
     // The Upstash client's own fetch attempts are expected here; the model must
     // never be contacted.
     const hosts = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(hosts.some((url) => url.includes('generativelanguage.googleapis.com'))).toBe(false);
+    expect(hosts.some((url) => url.includes('generativelanguage.googleapis.com'))).toBe(
+      false,
+    );
   });
 
   it('/api/air answers 503 with a generic message', async () => {

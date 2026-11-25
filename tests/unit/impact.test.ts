@@ -86,9 +86,15 @@ describe('with vs without estimate', () => {
   });
 
   it('returns null when PM2.5 is unavailable or invalid', () => {
-    expect(compareWithWithout({ pm25: null, profile: PROFILE, language: 'en' })).toBeNull();
-    expect(compareWithWithout({ pm25: undefined, profile: PROFILE, language: 'en' })).toBeNull();
-    expect(compareWithWithout({ pm25: Number.NaN, profile: PROFILE, language: 'en' })).toBeNull();
+    expect(
+      compareWithWithout({ pm25: null, profile: PROFILE, language: 'en' }),
+    ).toBeNull();
+    expect(
+      compareWithWithout({ pm25: undefined, profile: PROFILE, language: 'en' }),
+    ).toBeNull();
+    expect(
+      compareWithWithout({ pm25: Number.NaN, profile: PROFILE, language: 'en' }),
+    ).toBeNull();
     expect(compareWithWithout({ pm25: -1, profile: PROFILE, language: 'en' })).toBeNull();
   });
 });

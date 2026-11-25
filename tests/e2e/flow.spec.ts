@@ -43,7 +43,9 @@ async function chooseDelhi(page: Page, { navigate = true }: { navigate?: boolean
   await page.getByRole('searchbox').fill('Delhi');
   await page.getByRole('button', { name: /^(Search|खोजें|వెతకండి)$/ }).click();
   await page.getByRole('listitem').getByRole('button', { name: /Delhi/ }).first().click();
-  await expect(page.getByRole('heading', { name: /Quick profile|प्रोफ़ाइल|ప్రొఫైల్/ })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /Quick profile|प्रोफ़ाइल|ప్రొఫైల్/ }),
+  ).toBeVisible();
 }
 
 /** Profile step → plan step, using Skip so the defaults are exercised. */
@@ -85,7 +87,9 @@ test.describe('plans in all three languages', () => {
       expect(await page.evaluate(() => document.documentElement.lang)).toBe(lang);
 
       // Labelled fallback, never silent.
-      await expect(page.getByText(/rule-based plan|नियम-आधारित|నియమ-ఆధారిత/).first()).toBeVisible();
+      await expect(
+        page.getByText(/rule-based plan|नियम-आधारित|నియమ-ఆధారిత/).first(),
+      ).toBeVisible();
     });
   }
 });
@@ -95,11 +99,15 @@ test('the fallback states its real reason', async ({ page }) => {
   await skipToPlan(page);
   // This build runs in production without Upstash, so the paid path is off.
   await expect(
-    page.getByText(/Request protection is temporarily unavailable|built-in rule-based plan/).first(),
+    page
+      .getByText(/Request protection is temporarily unavailable|built-in rule-based plan/)
+      .first(),
   ).toBeVisible();
 });
 
-test('Cancel during a slow generation shows the offline plan at once', async ({ page }) => {
+test('Cancel during a slow generation shows the offline plan at once', async ({
+  page,
+}) => {
   await chooseDelhi(page);
 
   // Hold the plan request open so the slow-path UI appears.
@@ -119,7 +127,9 @@ test('Cancel during a slow generation shows the offline plan at once', async ({ 
   await expect(page.getByText(/You cancelled the AI request/).first()).toBeVisible();
   await expect(page.getByText(/Direct impact/i).first()).toBeVisible();
   // The request was aborted, so no error banner is shown.
-  await expect(page.getByRole('status').filter({ hasText: /failed|error/i })).toHaveCount(0);
+  await expect(page.getByRole('status').filter({ hasText: /failed|error/i })).toHaveCount(
+    0,
+  );
 });
 
 test('the profile step can be skipped', async ({ page }) => {
@@ -182,21 +192,35 @@ test('light and dark themes both apply', async ({ page }) => {
   await page.goto('/');
   const html = page.locator('html');
 
-  await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'light' }).click();
+  await page
+    .getByRole('group', { name: 'Theme' })
+    .getByRole('button', { name: 'light' })
+    .click();
   await expect(html).toHaveAttribute('data-theme', 'light');
-  const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const light = await page.evaluate(
+    () => getComputedStyle(document.body).backgroundColor,
+  );
 
-  await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'dark' }).click();
+  await page
+    .getByRole('group', { name: 'Theme' })
+    .getByRole('button', { name: 'dark' })
+    .click();
   await expect(html).toHaveAttribute('data-theme', 'dark');
   const dark = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
 
   expect(light).not.toBe(dark);
 
-  await page.getByRole('group', { name: 'Theme' }).getByRole('button', { name: 'auto' }).click();
+  await page
+    .getByRole('group', { name: 'Theme' })
+    .getByRole('button', { name: 'auto' })
+    .click();
   await expect(html).not.toHaveAttribute('data-theme', /.*/);
 });
 
-test('the limiter-unavailable path fails closed, never open', async ({ request, baseURL }) => {
+test('the limiter-unavailable path fails closed, never open', async ({
+  request,
+  baseURL,
+}) => {
   const air = await request.get(`${baseURL}/api/air?lat=28.61&lon=77.21`);
   expect(air.status()).toBe(503);
   expect(air.headers()['retry-after']).toMatch(/^\d+$/);

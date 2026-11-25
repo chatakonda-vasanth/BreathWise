@@ -35,7 +35,10 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
 
   const nowIndex = Math.max(0, history.length - 1);
   const linePath = series
-    .map((point, index) => `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${y(point.usAqi).toFixed(1)}`)
+    .map(
+      (point, index) =>
+        `${index === 0 ? 'M' : 'L'}${x(index).toFixed(1)},${y(point.usAqi).toFixed(1)}`,
+    )
     .join(' ');
   const areaPath = `${linePath} L${x(series.length - 1).toFixed(1)},${(padding.top + plotHeight).toFixed(1)} L${padding.left},${(
     padding.top + plotHeight
@@ -92,7 +95,7 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
           strokeOpacity="0.5"
           strokeDasharray="4 4"
         />
-                  <circle
+        <circle
           cx={x(nowIndex)}
           cy={y(series[nowIndex]?.usAqi ?? 0)}
           r="4.5"
@@ -101,7 +104,13 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
           strokeWidth="2"
         />
 
-        <text x={padding.left} y={height - 4} fontSize="11" fill="currentColor" opacity="0.75">
+        <text
+          x={padding.left}
+          y={height - 4}
+          fontSize="11"
+          fill="currentColor"
+          opacity="0.75"
+        >
           {firstLabel}
         </text>
         <text
@@ -150,7 +159,9 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
             {series.map((point) => (
               <tr key={`${point.time}-${point.usAqi}`}>
                 <td className="py-0.5 tabular-nums">{point.time.slice(11, 16)}</td>
-                <td className="py-0.5 text-right tabular-nums">{Math.round(point.usAqi)}</td>
+                <td className="py-0.5 text-right tabular-nums">
+                  {Math.round(point.usAqi)}
+                </td>
               </tr>
             ))}
           </tbody>

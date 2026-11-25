@@ -65,7 +65,11 @@ function hangingUpstream() {
       new Promise<Response>((_resolve, reject) => {
         const signal = init?.signal;
         const abort = () =>
-          reject(Object.assign(new Error('The operation was aborted.'), { name: 'TimeoutError' }));
+          reject(
+            Object.assign(new Error('The operation was aborted.'), {
+              name: 'TimeoutError',
+            }),
+          );
         if (!signal) return; // never resolves: catastrophically slow upstream
         if (signal.aborted) {
           abort();
@@ -161,7 +165,8 @@ describe('POST /api/plan when the model is too slow', () => {
 
     // The whole worst case (air fetch + all attempts + response margin)
     // must finish before Vercel's deadline, with slack left over.
-    const worstCaseMs = UPSTREAM_TIMEOUT_MS + LLM_TOTAL_BUDGET_MS + ROUTE_RESPONSE_MARGIN_MS;
+    const worstCaseMs =
+      UPSTREAM_TIMEOUT_MS + LLM_TOTAL_BUDGET_MS + ROUTE_RESPONSE_MARGIN_MS;
     expect(worstCaseMs).toBeLessThan(FUNCTION_MAX_DURATION_S * 1000);
     expect(FUNCTION_MAX_DURATION_S * 1000 - worstCaseMs).toBeGreaterThanOrEqual(1000);
   });

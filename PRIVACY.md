@@ -6,14 +6,14 @@ provider, and it sees categories and numbers — never who or where you are.
 
 ## What is processed
 
-| Data | Where it lives | Lifetime |
-| --- | --- | --- |
-| City search text | Request body to `/api/geocode`, then Open-Meteo | In memory for the request only |
-| Coordinates | Rounded to 2 decimals (~1.1 km), sent to Open-Meteo and used by `/api/plan` | In memory; a 10-minute server cache keyed by rounded coordinates |
-| Quick profile | React state in your browser tab | Until you refresh or close the tab |
-| Air data | Server cache (10 min) and your tab | Not personal data |
-| Rate-limit identity | SHA-256 hash of your IP, truncated, in Upstash with a short TTL | Seconds to minutes; the raw IP is never stored |
-| AI prompt | Built server-side from band values and enum choices | Sent to the AI provider, not stored by us |
+| Data                | Where it lives                                                              | Lifetime                                                         |
+| ------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| City search text    | Request body to `/api/geocode`, then Open-Meteo                             | In memory for the request only                                   |
+| Coordinates         | Rounded to 2 decimals (~1.1 km), sent to Open-Meteo and used by `/api/plan` | In memory; a 10-minute server cache keyed by rounded coordinates |
+| Quick profile       | React state in your browser tab                                             | Until you refresh or close the tab                               |
+| Air data            | Server cache (10 min) and your tab                                          | Not personal data                                                |
+| Rate-limit identity | SHA-256 hash of your IP, truncated, in Upstash with a short TTL             | Seconds to minutes; the raw IP is never stored                   |
+| AI prompt           | Built server-side from band values and enum choices                         | Sent to the AI provider, not stored by us                        |
 
 ## What we never do
 

@@ -68,7 +68,10 @@ async function postPlan(body: unknown): Promise<PlanHttpResult> {
  * `sample: true` keeps the air half deterministic (the labelled demo snapshot);
  * the AI path and every assertion below are the same as for live coordinates.
  */
-function planBody(language: 'en' | 'hi' | 'te', extraProfile: Record<string, unknown> = {}) {
+function planBody(
+  language: 'en' | 'hi' | 'te',
+  extraProfile: Record<string, unknown> = {},
+) {
   return {
     profile: { ...PROFILE, language, ...extraProfile },
     lat: 28.6139,
@@ -121,7 +124,11 @@ live('live AI path through POST /api/plan', () => {
       expect(meta.generatedBy).toBe('llm');
 
       // The output must actually be in the requested script.
-      for (const sample of [plan.headline, plan.whatThisMeans.text, plan.bestTimeToGoOut]) {
+      for (const sample of [
+        plan.headline,
+        plan.whatThisMeans.text,
+        plan.bestTimeToGoOut,
+      ]) {
         expect(sample).toMatch(script);
       }
 
@@ -210,7 +217,9 @@ live('live AI path through POST /api/plan', () => {
       if (typeof input === 'string') return input;
       return input instanceof URL ? input.toString() : input.url;
     });
-    expect(urls.some((url) => url.includes('generativelanguage.googleapis.com'))).toBe(true);
+    expect(urls.some((url) => url.includes('generativelanguage.googleapis.com'))).toBe(
+      true,
+    );
 
     for (const url of urls) {
       expect(url).not.toContain(API_KEY);

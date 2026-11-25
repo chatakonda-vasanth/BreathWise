@@ -49,7 +49,7 @@ npm run test:e2e # Playwright, after a build; needs a Chromium install
 
 ## Commits
 
-Small, focused commits with a sentence on *why*. Run `npm run verify` before
+Small, focused commits with a sentence on _why_. Run `npm run verify` before
 committing. Do not commit generated output (`coverage/`, `.next/`,
 `freebuff-sites-build/`, `.open-next/`); all of it is gitignored.
 

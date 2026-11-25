@@ -34,7 +34,8 @@ export const SNAPSHOT: AirSnapshot = {
 export const VALID_LLM_OUTPUT = {
   headline: 'Keep outdoor time short today.',
   whatThisMeans: 'Air is unhealthy for everyone. Plan errands for the cleanest hour.',
-  cigaretteEquivalentNote: 'Very roughly 5.5 cigarettes a day — a rough approximation only.',
+  cigaretteEquivalentNote:
+    'Very roughly 5.5 cigarettes a day — a rough approximation only.',
   bestTimeToGoOut: 'Late morning, when the chart shows the lowest value.',
   maskGuidance: 'Wear a fitted N95 mask for any trip outside.',
   schoolAndCommute: 'Shortest route, windows up in the vehicle.',
@@ -109,11 +110,13 @@ export const HINDI_LLM_OUTPUT = {
     title: `भीतरी उपाय ${index + 1}`,
     detail: 'छोटी अवधि के लिए खिड़कियाँ खोलें और फिर बंद करें।',
   })),
-  sustainableAlternatives: VALID_LLM_OUTPUT.sustainableAlternatives.map((item, index) => ({
-    ...item,
-    title: `टिकाऊ विकल्प ${index + 1}`,
-    detail: 'छोटी यात्राओं के लिए बस या मेट्रो चुनें।',
-  })),
+  sustainableAlternatives: VALID_LLM_OUTPUT.sustainableAlternatives.map(
+    (item, index) => ({
+      ...item,
+      title: `टिकाऊ विकल्प ${index + 1}`,
+      detail: 'छोटी यात्राओं के लिए बस या मेट्रो चुनें।',
+    }),
+  ),
 };
 
 export const TELUGU_LLM_OUTPUT = {
@@ -130,11 +133,13 @@ export const TELUGU_LLM_OUTPUT = {
     title: `ఇంటి చిట్కా ${index + 1}`,
     detail: 'కొద్దిసేపు కిటికీలు తెరిచి మూసేయండి.',
   })),
-  sustainableAlternatives: VALID_LLM_OUTPUT.sustainableAlternatives.map((item, index) => ({
-    ...item,
-    title: `స్థిరమైన ఎంపిక ${index + 1}`,
-    detail: 'చిన్న ప్రయాణాలకు బస్సు లేదా మెట్రో ఎంచుకోండి.',
-  })),
+  sustainableAlternatives: VALID_LLM_OUTPUT.sustainableAlternatives.map(
+    (item, index) => ({
+      ...item,
+      title: `స్థిరమైన ఎంపిక ${index + 1}`,
+      detail: 'చిన్న ప్రయాణాలకు బస్సు లేదా మెట్రో ఎంచుకోండి.',
+    }),
+  ),
 };
 
 export const PROFILE = {

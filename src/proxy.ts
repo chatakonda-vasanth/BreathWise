@@ -31,7 +31,10 @@ export function proxy(request: NextRequest) {
     // APIs are not documents: they never need a CSP, but dropping it avoids
     // confusing tooling while keeping all other headers.
     response.headers.delete('Content-Security-Policy');
-    response.headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'none'; frame-ancestors 'none'",
+    );
   }
 
   return response;

@@ -12,8 +12,9 @@ import { SNAPSHOT } from '../fixtures';
 
 function hourlyTimes(): string[] {
   const start = Date.UTC(2026, 0, 14, 0, 0, 0);
-  return Array.from({ length: 72 }, (_, index) =>
-    `${new Date(start + index * 3_600_000).toISOString().slice(0, 13)}:00`,
+  return Array.from(
+    { length: 72 },
+    (_, index) => `${new Date(start + index * 3_600_000).toISOString().slice(0, 13)}:00`,
   );
 }
 
@@ -118,7 +119,10 @@ describe('getAirSnapshot', () => {
   });
 
   it('throws a generic UpstreamError on a non-2xx response', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 500 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('nope', { status: 500 })),
+    );
     await expect(getAirSnapshot(11, 11)).rejects.toBeInstanceOf(UpstreamError);
   });
 

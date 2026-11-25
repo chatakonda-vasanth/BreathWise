@@ -36,9 +36,7 @@ describe('US AQI computation', () => {
   });
 
   it('returns the worst available sub-index', () => {
-    expect(overallUsAqi({ pm25: 10, pm10: 200, no2: 40, o3: 40 })).toBe(
-      pm10UsAqi(200),
-    );
+    expect(overallUsAqi({ pm25: 10, pm10: 200, no2: 40, o3: 40 })).toBe(pm10UsAqi(200));
     expect(overallUsAqi({})).toBe(0);
   });
 

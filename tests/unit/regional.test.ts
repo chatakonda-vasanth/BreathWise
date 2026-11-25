@@ -63,7 +63,9 @@ describe('regional context', () => {
 
   it('switches guidance for the monsoon and pre-monsoon', () => {
     expect(regionalContext(19.07, 72.87, JULY, 'en').notes.join(' ')).toMatch(/monsoon/i);
-    expect(regionalContext(19.07, 72.87, APRIL, 'en').notes.join(' ')).toMatch(/dustiest/i);
+    expect(regionalContext(19.07, 72.87, APRIL, 'en').notes.join(' ')).toMatch(
+      /dustiest/i,
+    );
   });
 
   it('reports the heating fuel for the coarse region', () => {

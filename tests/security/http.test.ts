@@ -19,7 +19,9 @@ describe('client IP derivation', () => {
   });
 
   it('uses x-real-ip when the Vercel header is absent', () => {
-    expect(getClientIp(new Headers({ 'x-real-ip': '198.51.100.4' }))).toBe('198.51.100.4');
+    expect(getClientIp(new Headers({ 'x-real-ip': '198.51.100.4' }))).toBe(
+      '198.51.100.4',
+    );
   });
 
   it('reads the leftmost entry, which Vercel guarantees is the real client', () => {
@@ -42,9 +44,13 @@ describe('client IP derivation', () => {
   });
 
   it('ignores malformed values and falls back to a shared bucket', () => {
-    expect(getClientIp(new Headers({ 'x-vercel-forwarded-for': 'not-an-ip' }))).toBe('unknown');
+    expect(getClientIp(new Headers({ 'x-vercel-forwarded-for': 'not-an-ip' }))).toBe(
+      'unknown',
+    );
     expect(getClientIp(new Headers())).toBe('unknown');
-    expect(getClientIp(new Headers({ 'x-forwarded-for': '999.999.999.999' }))).toBe('unknown');
+    expect(getClientIp(new Headers({ 'x-forwarded-for': '999.999.999.999' }))).toBe(
+      'unknown',
+    );
   });
 
   it('hashes IPs so no raw address becomes a stored key', () => {
@@ -156,7 +162,10 @@ describe('same-origin enforcement', () => {
 
   it('uses the last X-Forwarded-Host entry when a proxy appends', () => {
     const result = checkOrigin(
-      post({ origin: 'https://app.example', 'x-forwarded-host': 'evil.example, app.example' }),
+      post({
+        origin: 'https://app.example',
+        'x-forwarded-host': 'evil.example, app.example',
+      }),
     );
     expect(result.ok).toBe(true);
   });
@@ -165,11 +174,14 @@ describe('same-origin enforcement', () => {
     process.env.APP_ORIGIN = 'https://cleanair.example';
     // Downgrade to plain HTTP on the same host is not the same origin.
     expect(
-      checkOrigin(post({ origin: 'http://cleanair.example', host: 'cleanair.example' })).ok,
+      checkOrigin(post({ origin: 'http://cleanair.example', host: 'cleanair.example' }))
+        .ok,
     ).toBe(false);
     expect(checkOrigin(post({ origin: 'https://cleanair.example:8443' })).ok).toBe(false);
     expect(checkOrigin(post({ origin: 'https://evil-cleanair.example' })).ok).toBe(false);
-    expect(checkOrigin(post({ origin: 'https://cleanair.example.evil.example' })).ok).toBe(false);
+    expect(
+      checkOrigin(post({ origin: 'https://cleanair.example.evil.example' })).ok,
+    ).toBe(false);
     expect(checkOrigin(post({ origin: 'https://cleanair.example' })).ok).toBe(true);
   });
 
@@ -188,8 +200,12 @@ describe('same-origin enforcement', () => {
       '//cleanair.example',
     ]) {
       process.env.APP_ORIGIN = broken;
-      const result = checkOrigin(post({ origin: 'https://app.example', host: 'app.example' }));
-      expect(result.ok, `APP_ORIGIN=${JSON.stringify(broken)} must fail closed`).toBe(false);
+      const result = checkOrigin(
+        post({ origin: 'https://app.example', host: 'app.example' }),
+      );
+      expect(result.ok, `APP_ORIGIN=${JSON.stringify(broken)} must fail closed`).toBe(
+        false,
+      );
     }
   });
 

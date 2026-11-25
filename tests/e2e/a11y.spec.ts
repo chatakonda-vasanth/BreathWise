@@ -19,7 +19,14 @@ const AIR = {
     lon: 77.23,
     timezone: 'Asia/Kolkata',
     fetchedAt: '2026-11-25T10:00:00.000Z',
-    current: { time: '2026-11-25T10:00', usAqi: 184, pm25: 140, pm10: 250, no2: 45, o3: 60 },
+    current: {
+      time: '2026-11-25T10:00',
+      usAqi: 184,
+      pm25: 140,
+      pm10: 250,
+      no2: 45,
+      o3: 60,
+    },
     history: points(24, 110),
     forecast: points(24, 160),
     source: 'Open-Meteo Air Quality (CAMS)',
@@ -28,7 +35,12 @@ const AIR = {
   indices: {
     usAqi: 184,
     usBand: 'unhealthy',
-    naqi: { value: 210, band: 'poor', dominantPollutant: 'pm25', subIndices: { pm25: 210 } },
+    naqi: {
+      value: 210,
+      band: 'poor',
+      dominantPollutant: 'pm25',
+      subIndices: { pm25: 210 },
+    },
     severity: 'unhealthy',
     changeSinceYesterday: 12,
   },
@@ -61,23 +73,37 @@ const SKIP = /^(Skip|छोड़ें|దాటవేయి)$/;
 
 async function mockGeocode(page: Page) {
   await page.route('**/api/geocode**', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ results: [DELHI] }) }),
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ results: [DELHI] }),
+    }),
   );
 }
 
 async function mockAir(page: Page) {
   await page.route('**/api/air**', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AIR) }),
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(AIR),
+    }),
   );
 }
 
 async function setLanguage(page: Page, lang: Lang) {
-  await page.getByRole('group', { name: /Language|भाषा|భాష/ }).getByRole('button', { name: LANGUAGE_BUTTON[lang] }).click();
+  await page
+    .getByRole('group', { name: /Language|भाषा|భాష/ })
+    .getByRole('button', { name: LANGUAGE_BUTTON[lang] })
+    .click();
   await expect.poll(() => page.evaluate(() => document.documentElement.lang)).toBe(lang);
 }
 
 async function setTheme(page: Page, theme: 'light' | 'dark') {
-  await page.getByRole('group', { name: /Theme|थीम|థీమ్/ }).getByRole('button', { name: theme }).click();
+  await page
+    .getByRole('group', { name: /Theme|थीम|థీమ్/ })
+    .getByRole('button', { name: theme })
+    .click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
 }
 
@@ -99,7 +125,9 @@ async function scan(page: Page, label: string) {
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])
     .analyze();
 
-  const serious = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+  const serious = results.violations.filter(
+    (v) => v.impact === 'serious' || v.impact === 'critical',
+  );
   if (results.violations.length > 0) {
     console.log(
       `\n[axe:${label}] ${results.violations.length} violation(s)\n` +
@@ -116,7 +144,10 @@ async function scan(page: Page, label: string) {
         ),
     );
   }
-  expect(serious, `${label}: ${serious.map((v) => `${v.id} (${v.nodes.length})`).join(', ')}`).toEqual([]);
+  expect(
+    serious,
+    `${label}: ${serious.map((v) => `${v.id} (${v.nodes.length})`).join(', ')}`,
+  ).toEqual([]);
 }
 
 test.describe('axe-core on every screen and state', () => {
@@ -144,7 +175,11 @@ test.describe('axe-core on every screen and state', () => {
       await new Promise<void>((resolve) => {
         release = resolve;
       });
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AIR) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(AIR),
+      });
     });
     await page.goto('/');
     await openProfile(page);
@@ -182,7 +217,9 @@ test.describe('axe-core on every screen and state', () => {
     }
   }
 
-  test('labelled sample fallback (live data unavailable) and its banner', async ({ page }) => {
+  test('labelled sample fallback (live data unavailable) and its banner', async ({
+    page,
+  }) => {
     await mockGeocode(page);
     await page.route('**/api/air**', (route) =>
       route.fulfill({
@@ -193,7 +230,12 @@ test.describe('axe-core on every screen and state', () => {
     );
     await page.goto('/');
     await openProfile(page);
-    await expect(page.getByRole('status').filter({ hasText: /Sample|नमूना|నమూనా/ }).first()).toBeVisible();
+    await expect(
+      page
+        .getByRole('status')
+        .filter({ hasText: /Sample|नमूना|నమూనా/ })
+        .first(),
+    ).toBeVisible();
     await scan(page, 'sample-fallback');
   });
 
@@ -210,64 +252,99 @@ test.describe('axe-core on every screen and state', () => {
     await page.goto('/');
     await openProfile(page);
     await page.getByRole('button', { name: /Build my plan/ }).click();
-    await expect(page.getByRole('alert').filter({ hasText: /could not build the plan/ })).toBeVisible();
+    await expect(
+      page.getByRole('alert').filter({ hasText: /could not build the plan/ }),
+    ).toBeVisible();
     await scan(page, 'plan-error');
   });
 });
 
 test.describe('AA contrast for every band colour in both themes', () => {
-  const BANDS = ['good', 'moderate', 'sensitive', 'unhealthy', 'veryUnhealthy', 'hazardous'] as const;
+  const BANDS = [
+    'good',
+    'moderate',
+    'sensitive',
+    'unhealthy',
+    'veryUnhealthy',
+    'hazardous',
+  ] as const;
 
   for (const theme of ['light', 'dark'] as const) {
     test(`band text and chart line contrast, ${theme}`, async ({ page }) => {
       await page.goto('/');
       await setTheme(page, theme);
 
-      const results = await page.evaluate((bands) => {
-        const parse = (value: string) => {
-          const [r, g, b] = value.match(/\d+/g)!.slice(0, 3).map(Number) as [number, number, number];
-          return [r, g, b] as const;
-        };
-        const luminance = ([r, g, b]: readonly [number, number, number]) => {
-          const channel = (c: number) => {
-            const s = c / 255;
-            return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      const results = await page.evaluate(
+        (bands) => {
+          const parse = (value: string) => {
+            const [r, g, b] = value.match(/\d+/g)!.slice(0, 3).map(Number) as [
+              number,
+              number,
+              number,
+            ];
+            return [r, g, b] as const;
           };
-          return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
-        };
-        const ratio = (fg: readonly [number, number, number], bg: readonly [number, number, number]) => {
-          const [a, b] = [luminance(fg), luminance(bg)].sort((x, y) => y - x) as [number, number];
-          return (a + 0.05) / (b + 0.05);
-        };
+          const luminance = ([r, g, b]: readonly [number, number, number]) => {
+            const channel = (c: number) => {
+              const s = c / 255;
+              return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+            };
+            return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+          };
+          const ratio = (
+            fg: readonly [number, number, number],
+            bg: readonly [number, number, number],
+          ) => {
+            const [a, b] = [luminance(fg), luminance(bg)].sort((x, y) => y - x) as [
+              number,
+              number,
+            ];
+            return (a + 0.05) / (b + 0.05);
+          };
 
-        const background = parse(getComputedStyle(document.body).backgroundColor);
-        const out: { band: string; ink: string; ratio: number }[] = [];
-        for (const band of bands) {
-          const probe = document.createElement('p');
-          probe.className = 'band-colour';
-          probe.dataset.band = band;
-          probe.textContent = '1';
-          document.body.append(probe);
-          const ink = getComputedStyle(probe).color;
-          out.push({ band, ink, ratio: Number(ratio(parse(ink), background).toFixed(2)) });
-          probe.remove();
-        }
-        return out;
-      }, BANDS as unknown as string[]);
+          const background = parse(getComputedStyle(document.body).backgroundColor);
+          const out: { band: string; ink: string; ratio: number }[] = [];
+          for (const band of bands) {
+            const probe = document.createElement('p');
+            probe.className = 'band-colour';
+            probe.dataset.band = band;
+            probe.textContent = '1';
+            document.body.append(probe);
+            const ink = getComputedStyle(probe).color;
+            out.push({
+              band,
+              ink,
+              ratio: Number(ratio(parse(ink), background).toFixed(2)),
+            });
+            probe.remove();
+          }
+          return out;
+        },
+        BANDS as unknown as string[],
+      );
 
-      console.log(`\n[contrast:${theme}] ${results.map((r) => `${r.band}=${r.ratio}`).join(' ')}`);
+      console.log(
+        `\n[contrast:${theme}] ${results.map((r) => `${r.band}=${r.ratio}`).join(' ')}`,
+      );
       for (const result of results) {
-        expect(result.ratio, `${theme}/${result.band} (${result.ink})`).toBeGreaterThanOrEqual(4.5);
+        expect(
+          result.ratio,
+          `${theme}/${result.band} (${result.ink})`,
+        ).toBeGreaterThanOrEqual(4.5);
       }
     });
   }
 });
 
 test.describe('keyboard, focus and reflow', () => {
-  test('the skip link is first, appears on focus and moves focus to main', async ({ page }) => {
+  test('the skip link is first, appears on focus and moves focus to main', async ({
+    page,
+  }) => {
     await page.goto('/');
     await page.keyboard.press('Tab');
-    const skip = page.getByRole('link', { name: /Skip to main content|मुख्य सामग्री|ప్రధాన కంటెంట్/ });
+    const skip = page.getByRole('link', {
+      name: /Skip to main content|मुख्य सामग्री|ప్రధాన కంటెంట్/,
+    });
     await expect(skip).toBeVisible();
     const box = await skip.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
@@ -337,18 +414,23 @@ test.describe('keyboard, focus and reflow', () => {
         ),
       ).filter((el) => {
         const box = el.getBoundingClientRect();
-        return box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+        return (
+          box.width > 0 && box.height > 0 && getComputedStyle(el).visibility !== 'hidden'
+        );
       });
       const failures: { label: string; width: number; height: number }[] = [];
       for (const el of targets) {
         // A checkbox or radio inside a larger label may use the label's box.
         const box =
-          el instanceof HTMLInputElement && (el.type === 'checkbox' || el.type === 'radio')
+          el instanceof HTMLInputElement &&
+          (el.type === 'checkbox' || el.type === 'radio')
             ? (el.closest('label') ?? el).getBoundingClientRect()
             : el.getBoundingClientRect();
         if (box.width < 44 || box.height < 44) {
           failures.push({
-            label: (el.getAttribute('aria-label') ?? el.textContent ?? el.tagName).trim().slice(0, 50),
+            label: (el.getAttribute('aria-label') ?? el.textContent ?? el.tagName)
+              .trim()
+              .slice(0, 50),
             width: Math.round(box.width),
             height: Math.round(box.height),
           });
@@ -381,7 +463,10 @@ test.describe('keyboard, focus and reflow', () => {
       probe.className = 'skeleton';
       document.body.append(probe);
       const style = getComputedStyle(probe);
-      const value = { animation: style.animationDuration, transition: style.transitionDuration };
+      const value = {
+        animation: style.animationDuration,
+        transition: style.transitionDuration,
+      };
       probe.remove();
       return value;
     });
@@ -404,7 +489,9 @@ test.describe('keyboard, focus and reflow', () => {
       }));
 
     const at320 = await overflow();
-    console.log(`\n[reflow] 320px scrollWidth=${at320.scrollWidth} clientWidth=${at320.clientWidth}`);
+    console.log(
+      `\n[reflow] 320px scrollWidth=${at320.scrollWidth} clientWidth=${at320.clientWidth}`,
+    );
     expect(at320.scrollWidth).toBeLessThanOrEqual(at320.clientWidth + 1);
 
     // 200% text zoom: the root font size doubles, and Tailwind's rem-based
@@ -414,11 +501,15 @@ test.describe('keyboard, focus and reflow', () => {
       document.documentElement.style.fontSize = '200%';
     });
     const zoomed = await overflow();
-    console.log(`[reflow] 640px @200% scrollWidth=${zoomed.scrollWidth} clientWidth=${zoomed.clientWidth}`);
+    console.log(
+      `[reflow] 640px @200% scrollWidth=${zoomed.scrollWidth} clientWidth=${zoomed.clientWidth}`,
+    );
     expect(zoomed.scrollWidth).toBeLessThanOrEqual(zoomed.clientWidth + 1);
   });
 
-  test('colour is never the only indicator and the chart has a table alternative', async ({ page }) => {
+  test('colour is never the only indicator and the chart has a table alternative', async ({
+    page,
+  }) => {
     await mockGeocode(page);
     await mockAir(page);
     await page.goto('/');
@@ -444,7 +535,11 @@ test.describe('keyboard, focus and reflow', () => {
       await new Promise<void>((resolve) => {
         release = resolve;
       });
-      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(AIR) });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(AIR),
+      });
     });
     await page.goto('/');
     await openProfile(page);
@@ -463,7 +558,9 @@ test.describe('self-hosted Hindi and Telugu fonts', () => {
   } as const;
 
   for (const lang of ['hi', 'te'] as const) {
-    test(`${lang} text is drawn by its own self-hosted font with no missing glyphs`, async ({ page }) => {
+    test(`${lang} text is drawn by its own self-hosted font with no missing glyphs`, async ({
+      page,
+    }) => {
       await mockGeocode(page);
       await mockAir(page);
       await page.goto('/');
@@ -473,7 +570,9 @@ test.describe('self-hosted Hindi and Telugu fonts', () => {
 
       const report = await page.evaluate(({ text, family }) => {
         const scopes = [...document.querySelectorAll('[lang]')];
-        const scope = scopes.find((node) => node.getAttribute('lang') === document.documentElement.lang);
+        const scope = scopes.find(
+          (node) => node.getAttribute('lang') === document.documentElement.lang,
+        );
         const style = getComputedStyle(scope ?? document.body);
         const fontFamily = style.fontFamily;
         const families = fontFamily
@@ -496,7 +595,10 @@ test.describe('self-hosted Hindi and Telugu fonts', () => {
           fontFamily,
           familyVariable: family,
           covers: document.fonts.check(`700 32px "${primary}"`, text),
-          loadedFonts: [...document.fonts].map((face) => ({ family: face.family, status: face.status })),
+          loadedFonts: [...document.fonts].map((face) => ({
+            family: face.family,
+            status: face.status,
+          })),
           widthWithPageFont: measure(`"${primary}"`),
           widthWithFallback: measure('serif'),
           fontRequests: performance
@@ -524,4 +626,3 @@ test.describe('self-hosted Hindi and Telugu fonts', () => {
     });
   }
 });
-

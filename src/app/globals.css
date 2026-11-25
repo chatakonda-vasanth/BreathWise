@@ -244,7 +244,12 @@ body {
   }
 
   .skeleton {
-    background: linear-gradient(90deg, var(--surface-2) 0%, var(--border) 50%, var(--surface-2) 100%);
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 0%,
+      var(--border) 50%,
+      var(--surface-2) 100%
+    );
     background-size: 200% 100%;
     border-radius: 8px;
     animation: shimmer 1.4s ease-in-out infinite;

@@ -31,7 +31,14 @@ export const airSnapshotSchema = z
 export const derivedSchema = z
   .object({
     usAqi: z.number(),
-    usBand: z.enum(['good', 'moderate', 'usg', 'unhealthy', 'veryUnhealthy', 'hazardous']),
+    usBand: z.enum([
+      'good',
+      'moderate',
+      'usg',
+      'unhealthy',
+      'veryUnhealthy',
+      'hazardous',
+    ]),
     naqi: z
       .object({
         value: z.number(),

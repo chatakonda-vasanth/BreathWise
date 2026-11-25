@@ -120,7 +120,11 @@ describe('prompt builder defensive branches', () => {
 
 describe('indices defensive branches', () => {
   it('handles an empty history and a missing current index', () => {
-    const empty = { ...SNAPSHOT, history: [], current: { ...SNAPSHOT.current, usAqi: null, pm25: null } };
+    const empty = {
+      ...SNAPSHOT,
+      history: [],
+      current: { ...SNAPSHOT.current, usAqi: null, pm25: null },
+    };
     const derived = deriveIndices(empty);
     expect(derived.usAqi).toBe(0);
     expect(derived.changeSinceYesterday).toBeNull();
@@ -143,7 +147,9 @@ describe('indices defensive branches', () => {
 
   it('rounds the change against the value 24 hours earlier', () => {
     const derived = deriveIndices(SNAPSHOT);
-    expect(derived.changeSinceYesterday).toBe(180 - (SNAPSHOT.history.at(-24)?.usAqi ?? 0));
+    expect(derived.changeSinceYesterday).toBe(
+      180 - (SNAPSHOT.history.at(-24)?.usAqi ?? 0),
+    );
   });
 });
 
@@ -249,7 +255,9 @@ describe('gemini model id and transport', () => {
   it('rejects an empty key before any request', async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
-    await expect(callGemini({ system: 's', user: 'u', apiKey: '   ' })).rejects.toMatchObject({
+    await expect(
+      callGemini({ system: 's', user: 'u', apiKey: '   ' }),
+    ).rejects.toMatchObject({
       code: 'no_api_key',
     });
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -271,14 +279,21 @@ describe('gemini model id and transport', () => {
     [400, 'upstream_error'],
   ])('maps HTTP %i to %s', async (status, code) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status })));
-    await expect(callGemini({ system: 's', user: 'u', apiKey: 'k' })).rejects.toMatchObject({
+    await expect(
+      callGemini({ system: 's', user: 'u', apiKey: 'k' }),
+    ).rejects.toMatchObject({
       code,
     });
   });
 
   it('rejects a 200 response whose body is not JSON', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>', { status: 200 })));
-    await expect(callGemini({ system: 's', user: 'u', apiKey: 'k' })).rejects.toMatchObject({
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html>', { status: 200 })),
+    );
+    await expect(
+      callGemini({ system: 's', user: 'u', apiKey: 'k' }),
+    ).rejects.toMatchObject({
       code: 'upstream_error',
     });
   });
@@ -288,7 +303,9 @@ describe('gemini model id and transport', () => {
       'fetch',
       vi.fn().mockResolvedValue(json({ candidates: [{ content: { parts: [] } }] })),
     );
-    await expect(callGemini({ system: 's', user: 'u', apiKey: 'k' })).rejects.toMatchObject({
+    await expect(
+      callGemini({ system: 's', user: 'u', apiKey: 'k' }),
+    ).rejects.toMatchObject({
       code: 'invalid_output',
     });
   });
@@ -297,7 +314,9 @@ describe('gemini model id and transport', () => {
     expect(
       extractText({
         candidates: [
-          { content: { parts: [{ text: 'a' }, { inlineData: {} }, { text: 'b' }, null] } },
+          {
+            content: { parts: [{ text: 'a' }, { inlineData: {} }, { text: 'b' }, null] },
+          },
         ],
       }),
     ).toBe('ab');
@@ -395,7 +414,10 @@ describe('upstream air failures and cache maintenance', () => {
       us_aqi: 180,
     },
     hourly: {
-      time: Array.from({ length: 48 }, (_, i) => `2026-01-15T${String(i % 24).padStart(2, '0')}:00`),
+      time: Array.from(
+        { length: 48 },
+        (_, i) => `2026-01-15T${String(i % 24).padStart(2, '0')}:00`,
+      ),
       pm2_5: Array(48).fill(120),
       pm10: Array(48).fill(230),
       nitrogen_dioxide: Array(48).fill(45),
@@ -409,12 +431,18 @@ describe('upstream air failures and cache maintenance', () => {
   });
 
   it('turns an HTTP 500 into UpstreamError', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 500 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 500 })),
+    );
     await expect(getAirSnapshot(21.1, 79.1)).rejects.toBeInstanceOf(UpstreamError);
   });
 
   it('keeps the cache bounded past 500 entries without losing the newest value', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => json(payload)));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => json(payload)),
+    );
 
     for (let i = 0; i < 501; i += 1) {
       // Distinct 2-decimal coordinates produce distinct cache keys.
@@ -438,12 +466,31 @@ describe('rate limiter degraded and fail-closed paths', () => {
     vi.stubEnv('NODE_ENV', 'development');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const first = await enforceRateLimit({ name: 'dev', limit: 2, windowMs: 60_000, ip: '1.1.1.1' });
-    const second = await enforceRateLimit({ name: 'dev', limit: 2, windowMs: 60_000, ip: '1.1.1.1' });
-    const third = await enforceRateLimit({ name: 'dev', limit: 2, windowMs: 60_000, ip: '1.1.1.1' });
+    const first = await enforceRateLimit({
+      name: 'dev',
+      limit: 2,
+      windowMs: 60_000,
+      ip: '1.1.1.1',
+    });
+    const second = await enforceRateLimit({
+      name: 'dev',
+      limit: 2,
+      windowMs: 60_000,
+      ip: '1.1.1.1',
+    });
+    const third = await enforceRateLimit({
+      name: 'dev',
+      limit: 2,
+      windowMs: 60_000,
+      ip: '1.1.1.1',
+    });
 
     expect(first).toMatchObject({ ok: true, degraded: true });
-    expect(second).toMatchObject({ ok: true, degraded: true, retryAfterSeconds: expect.any(Number) });
+    expect(second).toMatchObject({
+      ok: true,
+      degraded: true,
+      retryAfterSeconds: expect.any(Number),
+    });
     expect(third).toMatchObject({ ok: false, degraded: true, reason: 'rate_limited' });
     expect(warn).toHaveBeenCalledTimes(1);
   });
@@ -453,7 +500,11 @@ describe('rate limiter degraded and fail-closed paths', () => {
     expect(upstashConfigured()).toBe(false);
     await expect(
       enforceRateLimit({ name: 'prod', limit: 5, windowMs: 60_000, ip: '1.1.1.1' }),
-    ).resolves.toMatchObject({ ok: false, reason: 'limiter_unavailable', degraded: false });
+    ).resolves.toMatchObject({
+      ok: false,
+      reason: 'limiter_unavailable',
+      degraded: false,
+    });
   });
 
   it('fails closed in production when Upstash is configured but unreachable', async () => {
@@ -483,7 +534,10 @@ describe('rate limiter degraded and fail-closed paths', () => {
 
   it('counts the daily cap in memory outside production', async () => {
     vi.stubEnv('NODE_ENV', 'test');
-    await expect(consumeDailyLlmQuota(1)).resolves.toMatchObject({ allowed: true, degraded: true });
+    await expect(consumeDailyLlmQuota(1)).resolves.toMatchObject({
+      allowed: true,
+      degraded: true,
+    });
     await expect(consumeDailyLlmQuota(1)).resolves.toMatchObject({
       allowed: false,
       reason: 'daily_cap',

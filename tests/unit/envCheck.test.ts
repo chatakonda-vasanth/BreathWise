@@ -23,7 +23,12 @@ describe('inspectEnv', () => {
 
   it('treats blank values as missing', () => {
     const report = inspectEnv(
-      { GEMINI_API_KEY: '   ', GEMINI_MODEL: '', UPSTASH_REDIS_REST_URL: ' ', UPSTASH_REDIS_REST_TOKEN: '' },
+      {
+        GEMINI_API_KEY: '   ',
+        GEMINI_MODEL: '',
+        UPSTASH_REDIS_REST_URL: ' ',
+        UPSTASH_REDIS_REST_TOKEN: '',
+      },
       true,
     );
     expect(report.missing).toHaveLength(4);
@@ -34,7 +39,10 @@ describe('inspectEnv', () => {
       { GEMINI_API_KEY: SECRET_KEY, GEMINI_MODEL: 'gemini-3.5-flash' },
       true,
     );
-    expect(report.missing).toEqual(['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN']);
+    expect(report.missing).toEqual([
+      'UPSTASH_REDIS_REST_URL',
+      'UPSTASH_REDIS_REST_TOKEN',
+    ]);
     expect(report.rateLimitingDisabled).toBe(true);
     expect(report.llmDisabled).toBe(false);
   });
@@ -50,14 +58,18 @@ describe('inspectEnv', () => {
     };
 
     expect(inspectEnv(base, true).appOrigin).toBe('unset');
-    expect(inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example' }, true).appOrigin).toBe(
-      'valid',
-    );
-    expect(inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example/' }, true).appOrigin).toBe(
-      'valid',
-    );
+    expect(
+      inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example' }, true).appOrigin,
+    ).toBe('valid');
+    expect(
+      inspectEnv({ ...base, APP_ORIGIN: 'https://cleanair.example/' }, true).appOrigin,
+    ).toBe('valid');
 
-    for (const broken of ['cleanair.example', 'cleanair.example:443', 'ftp://cleanair.example']) {
+    for (const broken of [
+      'cleanair.example',
+      'cleanair.example:443',
+      'ftp://cleanair.example',
+    ]) {
       expect(inspectEnv({ ...base, APP_ORIGIN: broken }, true).appOrigin).toBe('invalid');
     }
   });

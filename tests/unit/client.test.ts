@@ -70,7 +70,9 @@ describe('requestJson via fetchAir', () => {
   });
 
   it('falls back to server_error when the error body is not JSON', async () => {
-    fetchMock.mockResolvedValueOnce(new Response('<html>bad gateway</html>', { status: 502 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response('<html>bad gateway</html>', { status: 502 }),
+    );
     await expect(fetchAir(1, 1)).rejects.toMatchObject({
       status: 502,
       code: 'server_error',
@@ -91,7 +93,18 @@ describe('requestJson via fetchAir', () => {
 describe('searchCities', () => {
   it('encodes the query and returns the results array', async () => {
     fetchMock.mockResolvedValueOnce(
-      jsonResponse({ results: [{ id: 1, name: 'Delhi', country: 'India', lat: 28.6, lon: 77.2, timezone: 'Asia/Kolkata' }] }),
+      jsonResponse({
+        results: [
+          {
+            id: 1,
+            name: 'Delhi',
+            country: 'India',
+            lat: 28.6,
+            lon: 77.2,
+            timezone: 'Asia/Kolkata',
+          },
+        ],
+      }),
     );
     const results = await searchCities('New Delhi & <b>');
     const [url] = fetchMock.mock.calls[0] as [string];
@@ -112,17 +125,16 @@ describe('requestPlan', () => {
       jsonResponse({ plan: { headline: 'x' }, sample: false }),
     );
     try {
-      await requestPlan(
-        { profile: PROFILE, lat: 19.08, lon: 72.88 },
-        controller.signal,
-      );
+      await requestPlan({ profile: PROFILE, lat: 19.08, lon: 72.88 }, controller.signal);
     } catch {
       // The fixture is not a full plan; only the request shape is under test.
     }
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/plan');
     expect(init.method).toBe('POST');
-    expect((init.headers as Record<string, string>)['content-type']).toBe('application/json');
+    expect((init.headers as Record<string, string>)['content-type']).toBe(
+      'application/json',
+    );
     expect(init.signal).toBe(controller.signal);
     expect(JSON.parse(String(init.body))).toMatchObject({ lat: 19.08, lon: 72.88 });
   });

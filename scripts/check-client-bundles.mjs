@@ -28,7 +28,16 @@ const SECRET_PATTERNS = [
 
 const SERVER_ONLY_NAMES = SECRET_ENV;
 
-const TEXT_EXTENSIONS = new Set(['.js', '.mjs', '.cjs', '.json', '.css', '.map', '.txt', '.html']);
+const TEXT_EXTENSIONS = new Set([
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.css',
+  '.map',
+  '.txt',
+  '.html',
+]);
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir)) {
@@ -74,9 +83,13 @@ for (const target of TARGETS) {
   }
 }
 
-console.log(`Scanned ${scanned} client files (${(bytes / 1024).toFixed(1)} KiB) under ${TARGETS.join(', ')}`);
+console.log(
+  `Scanned ${scanned} client files (${(bytes / 1024).toFixed(1)} KiB) under ${TARGETS.join(', ')}`,
+);
 for (const name of SECRET_ENV) {
-  console.log(`  ${name}: ${process.env[name] ? 'set — searched for its value' : 'not set — shape scan only'}`);
+  console.log(
+    `  ${name}: ${process.env[name] ? 'set — searched for its value' : 'not set — shape scan only'}`,
+  );
 }
 
 if (findings.length > 0) {
@@ -85,4 +98,6 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-console.log('\nPASS: no secrets, tokens or server-only variable names found in client bundles.');
+console.log(
+  '\nPASS: no secrets, tokens or server-only variable names found in client bundles.',
+);

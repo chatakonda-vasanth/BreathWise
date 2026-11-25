@@ -4,30 +4,15 @@ export type Language = 'en' | 'hi' | 'te';
 
 /** US EPA AQI bands. */
 export type UsBand =
-  | 'good'
-  | 'moderate'
-  | 'usg'
-  | 'unhealthy'
-  | 'veryUnhealthy'
-  | 'hazardous';
+  'good' | 'moderate' | 'usg' | 'unhealthy' | 'veryUnhealthy' | 'hazardous';
 
 /** Indian CPCB National Air Quality Index bands. */
 export type NaqiBand =
-  | 'good'
-  | 'satisfactory'
-  | 'moderate'
-  | 'poor'
-  | 'veryPoor'
-  | 'severe';
+  'good' | 'satisfactory' | 'moderate' | 'poor' | 'veryPoor' | 'severe';
 
 /** Unified band used by the UI and the deterministic planner. */
 export type SeverityBand =
-  | 'good'
-  | 'moderate'
-  | 'sensitive'
-  | 'unhealthy'
-  | 'veryUnhealthy'
-  | 'hazardous';
+  'good' | 'moderate' | 'sensitive' | 'unhealthy' | 'veryUnhealthy' | 'hazardous';
 
 export interface AirPoint {
   /** ISO timestamp from upstream, local to the requested location. */

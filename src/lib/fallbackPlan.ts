@@ -68,7 +68,10 @@ const PURIFIER_TEXT: Record<Language, (cadr: number, area: number) => string> = 
     `${area} m² గదికి సుమారు ${cadr} m³/h CADR (లేదా ఎక్కువ) ఉన్న ప్యూరిఫైయర్ చూడండి. పెట్టెపై ఉన్న CADR సంఖ్యను చూడండి, ప్రకటన గది-పరిమాణ దావా కాదు.`,
 };
 
-const PURIFIER_IMPACT: Record<Language, { mechanism: string; reduction: string; assumption: string }> = {
+const PURIFIER_IMPACT: Record<
+  Language,
+  { mechanism: string; reduction: string; assumption: string }
+> = {
   en: {
     mechanism:
       'A HEPA filter with enough clean-air delivery rate turns the room air over several times an hour, removing fine particles that leaked in.',
@@ -95,10 +98,7 @@ const PURIFIER_IMPACT: Record<Language, { mechanism: string; reduction: string; 
   },
 };
 
-function purifierRecommendation(
-  language: Language,
-  roomSizeSqm: number,
-): Recommendation {
+function purifierRecommendation(language: Language, roomSizeSqm: number): Recommendation {
   const cadr = hepaCadr(roomSizeSqm);
   const text = PURIFIER_TEXT[language](cadr, Math.round(roomSizeSqm));
   const impact = PURIFIER_IMPACT[language];

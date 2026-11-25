@@ -136,7 +136,9 @@ describe('deterministic fallback plan', () => {
 
 describe('medical safety banner', () => {
   it('is present for severe/hazardous air', () => {
-    expect(medicalAlertFor('en', 'hazardous', 'severe', false)).toContain('medical advice');
+    expect(medicalAlertFor('en', 'hazardous', 'severe', false)).toContain(
+      'medical advice',
+    );
   });
 
   it('is present for the symptoms toggle at any band', () => {
@@ -148,8 +150,12 @@ describe('medical safety banner', () => {
   });
 
   it('is localised', () => {
-    expect(medicalAlertFor('hi', 'hazardous', 'severe', false)).toMatch(/[\u0900-\u097F]/);
-    expect(medicalAlertFor('te', 'hazardous', 'severe', false)).toMatch(/[\u0C00-\u0C7F]/);
+    expect(medicalAlertFor('hi', 'hazardous', 'severe', false)).toMatch(
+      /[\u0900-\u097F]/,
+    );
+    expect(medicalAlertFor('te', 'hazardous', 'severe', false)).toMatch(
+      /[\u0C00-\u0C7F]/,
+    );
   });
 });
 

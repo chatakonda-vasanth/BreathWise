@@ -86,7 +86,8 @@ function filesUnder(dir) {
 
 function textOf(path) {
   // Binary assets (images, fonts) cannot carry these values; skip them cheaply.
-  if (/\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|wasm|zip|gz|br)$/i.test(path)) return null;
+  if (/\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|wasm|zip|gz|br)$/i.test(path))
+    return null;
   return readFileSync(path, 'latin1');
 }
 
@@ -96,7 +97,9 @@ const fromDotEnv = parseDotEnv('.env.local');
 
 for (const name of SERVER_ONLY_NAMES) {
   const candidates = [process.env[name], fromDotEnv[name]];
-  const value = candidates.find((candidate) => candidate && candidate.length >= MIN_VALUE_LENGTH);
+  const value = candidates.find(
+    (candidate) => candidate && candidate.length >= MIN_VALUE_LENGTH,
+  );
   if (value) known.set(name, value);
 }
 
@@ -126,7 +129,12 @@ for (const file of scannedFiles) {
       hits += 1;
       const line = text.slice(0, index).split('\n').length;
       const isCompiledDefault = name === 'GEMINI_MODEL' && value === modelDefault;
-      const entry = { where, name, line, kind: isCompiledDefault ? 'compiled default' : 'value' };
+      const entry = {
+        where,
+        name,
+        line,
+        kind: isCompiledDefault ? 'compiled default' : 'value',
+      };
       (isCompiledDefault ? expected : failures).push(entry);
       index = text.indexOf(value, index + value.length);
     }
@@ -162,9 +170,13 @@ for (const name of SERVER_ONLY_NAMES) {
     name === 'GEMINI_MODEL' && value === modelDefault
       ? `equals the compiled-in default (${modelDefault}), so occurrences are expected`
       : 'searched for its exact value';
-  console.log(`  ${name}: value known (${value.length} chars) — ${label}; hits: ${counts.get(name)}`);
+  console.log(
+    `  ${name}: value known (${value.length} chars) — ${label}; hits: ${counts.get(name)}`,
+  );
 }
-console.log(`  Google API key shape: ${failures.filter((e) => e.kind === 'shape').length} hit(s)`);
+console.log(
+  `  Google API key shape: ${failures.filter((e) => e.kind === 'shape').length} hit(s)`,
+);
 
 if (expected.length > 0) {
   const files = [...new Set(expected.map((entry) => entry.where))];
@@ -180,4 +192,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log('\nPASS: no secret value and no server-only variable name in the deployment output');
+console.log(
+  '\nPASS: no secret value and no server-only variable name in the deployment output',
+);
