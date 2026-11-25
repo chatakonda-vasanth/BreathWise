@@ -107,6 +107,25 @@ server also labels the plan response `sample: true`.
 
 ---
 
+## How this addresses the problem
+
+The brief: an assistant that helps families and communities navigate severe
+winter smog by suggesting low-emission routines, indoor air hacks and sustainable
+alternatives tailored to location and lifestyle, while explaining the direct
+impact, with every regional or impact claim conservative, labelled and carrying
+its assumption.
+
+| Requirement | Where it lives | What proves it |
+| --- | --- | --- |
+| Location tailoring without sending a place to the model | `src/lib/regional.ts` — static coarse-region + season table, browser-only; documented in [`PRIVACY.md`](PRIVACY.md) | `tests/unit/regional.test.ts` (region/season/burning/inversion cases; asserts `prompt.ts`, `planService.ts` and `gemini.ts` never import it) |
+| Lifestyle tailoring, visibly used | `src/lib/impact.ts` (`whyThisPlanFits`), rendered by `src/components/personal-context.tsx` (`WhyThisPlanFits`) and passed `profile` from `src/components/app-shell.tsx` | `tests/unit/impact.test.ts` (“names every household input that shaped the plan”) |
+| “Why this plan fits you” summary | `WhyThisPlanFits` card on every plan | `tests/unit/impact.test.ts`; `tests/e2e/flow.spec.ts` asserts the card renders |
+| Direct impact with a deterministic with/without estimate | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact.ts`, rendered by `WithWithoutCard` | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing) |
+| “Rough estimate” next to every number, in English, Hindi and Telugu | `ImpactLabels.roughEstimate` in `src/lib/impact.ts`, printed beside each value | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”) |
+| Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx` | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan |
+| Community checklist (school, workplace, resident association, no-burning, carpool) | `communityItems` in `src/lib/i18n.ts`, rendered in “Community mode” | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable |
+| Conservative, labelled regional and impact claims | Every regional note and impact factor states its assumption; see `src/lib/regional.ts`, `src/lib/impact.ts`, `src/lib/fallbackPlan.ts` | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present) |
+
 ## Deploy (Vercel)
 
 Zero config: there is no database, no migration, no cron, no server action and
