@@ -37,8 +37,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit tests
+      - name: Unit tests with coverage thresholds
         run: npm test
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
 
       - name: Dependency audit
         run: npm audit --audit-level=low
@@ -48,6 +56,9 @@ jobs:
 
       - name: Client bundle secret scan
         run: npm run check:bundles
+
+      - name: Deployment output secret scan
+        run: npm run check:secrets-in-bundle
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
