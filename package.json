@@ -24,33 +24,39 @@
     "smoke": "bash scripts/smoke.sh",
     "check:bundles": "node scripts/check-client-bundles.mjs",
     "check:secrets-in-bundle": "node scripts/check-secrets-in-bundle.mjs",
-    "check": "npm run lint && npm run typecheck && npm run test"
+    "check": "npm run lint && npm run typecheck && npm run test",
+    "test:security": "vitest run tests/security",
+    "secrets:dir": "gitleaks dir . --no-banner --redact"
   },
   "dependencies": {
-    "@upstash/ratelimit": "^2.2.1",
-    "@upstash/redis": "^1.41.0",
-    "next": "^16.4.6",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "zod": "^4.6.7"
+    "@upstash/ratelimit": "2.2.1",
+    "@upstash/redis": "1.41.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "1.20.12",
-    "@playwright/test": "^1.65.1",
-    "@tailwindcss/postcss": "^4.3.5",
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
-    "@vitest/coverage-v8": "^5.1.1",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "^16.4.6",
-    "eslint-plugin-react": "^7.37.5",
-    "lighthouse": "^13.6.0",
-    "postcss": "^8.5.33",
-    "prettier": "^3.10.1",
-    "tailwindcss": "^4.3.5",
-    "typescript": "^6.0.3",
-    "vitest": "^5.1.1",
-    "wrangler": "4.148.0"
+    "@opennextjs/cloudflare": "1.20.18",
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/coverage-v8": "5.1.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.6",
+    "eslint-plugin-react": "7.37.5",
+    "postcss": "8.5.33",
+    "prettier": "3.10.1",
+    "tailwindcss": "4.3.5",
+    "typescript": "6.0.3",
+    "vitest": "5.1.1",
+    "wrangler": "4.168.0"
+  },
+  "overrides": {
+    "glob": "14.0.6",
+    "minimatch": "11.0.9",
+    "sharp": "0.35.5"
   }
 }
