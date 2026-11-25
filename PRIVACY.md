@@ -26,6 +26,23 @@ provider, and it sees categories and numbers — never who or where you are.
 - No third-party scripts, fonts or CDNs. Fonts are self-hosted at build time.
 - No `dangerouslySetInnerHTML` anywhere in the codebase.
 
+## Local regional context
+
+Location tailoring does not add a data flow. The app maps the **already rounded**
+coordinates (2 decimals, ~1.1 km) to a coarse region in `src/lib/regional.ts`
+using a static bounding-box table, and the calendar month to a season. That table
+returns reviewed guidance (winter inversion months, the late-October–November
+crop-residue burning window, typical heating fuel, monsoon and pre-monsoon
+dust).
+
+- The lookup runs **entirely in your browser** (or in a unit test). It is not an
+  API call and it is not logged.
+- No region, season, city name or coordinate is sent to the AI provider. The
+  prompt builder does not import the regional layer, and
+  `tests/unit/regional.test.ts` fails if it ever does.
+- The regional notes are always labelled as general regional guidance, with the
+  assumption stated next to them, never as a measurement for your street.
+
 ## The AI provider caveat, stated plainly
 
 Plans are generated on our server by a third-party large-language-model provider
