@@ -1,17 +1,65 @@
 # CleanAir Companion
 
-Privacy-first, location-aware guidance for severe winter smog and urban air
-pollution. Families search a city (or consent to geolocation), see live air
-quality in two standards, and get a household plan with a labelled
-**Direct impact** block for every recommendation.
+[![CI](https://github.com/chatakonda-vasanth/BreathWise/actions/workflows/ci.yml/badge.svg)](https://github.com/chatakonda-vasanth/BreathWise/actions/workflows/ci.yml)
 
-- **No database, no accounts, no stored personal data, no analytics, no tracking cookies.**
-- Next.js App Router + TypeScript (strict) + Tailwind, deployable to Vercel's free tier.
-- Air data: [Open-Meteo](https://open-meteo.com/) Air Quality + Geocoding (no key, server-side only).
-- Plan generation: Gemini free tier (or any OpenAI-compatible key you wire up), server-side only, with a
-  deterministic rule-based fallback that is always available.
-- Rate limiting: Upstash Redis (free tier), **required in production** — every route
-  fails closed without it; a per-instance in-memory limiter is used in development only.
+**The problem.** Every winter, severe smog and urban air pollution force families
+across South Asia to make daily decisions — whether a child walks to school,
+whether to open a window, whether to spend money on a purifier — with no
+practical, household-level guidance. CleanAir Companion is a GenAI assistant
+that turns public air-quality data into low-emission daily routines, indoor air
+hacks and sustainable alternatives tailored to a household's location and
+lifestyle, while explaining the direct impact of each suggestion. It is
+privacy-first by construction: no accounts, no database, no stored location, and
+no place name ever sent to the model. Every regional or impact claim is
+conservative, labelled as an estimate, and carries its assumption.
+
+**Live demo:** <https://breathwise-u27mzs.freebuff.site>
+
+## Run it in 3 commands
+
+No API keys, no database and no environment variables are needed.
+
+```bash
+npm ci
+npm run dev
+# open http://localhost:3000
+```
+
+Without `GEMINI_API_KEY` the app serves the deterministic rule-based plan,
+clearly labelled with its reason; if live air data cannot be fetched it falls
+back to an explicitly labelled sample snapshot. Both are visible on screen, never
+silent. Node 20+.
+
+## Architecture
+
+```
+                       ┌──────────────────────────────────────────┐
+ browser (no secrets)  │  React client (app-shell, plan-view)     │
+                       │  · profile stays in React state          │
+                       │  · regional + impact layers run locally  │
+                       └───────────────┬──────────────────────────┘
+                                       │ same-origin fetch only (connect-src 'self')
+                       ┌───────────────▼──────────────────────────┐
+                       │  Next.js route handlers (server)         │
+                       │  /api/geocode  /api/air  /api/plan       │
+                       │  /api/health   /.well-known/security.txt │
+                       │  · origin + IP + size checks             │
+                       │  · rate limit → fail closed              │
+                       │  · zod validation, no free text          │
+                       └───────┬───────────────────────┬──────────┘
+                               │ fixed hosts           │ fixed host, key in header
+                    ┌──────────▼─────────┐   ┌─────────▼──────────────┐
+                    │ Open-Meteo (CAMS)  │   │ Gemini (server-side)   │
+                    │ air + geocoding    │   │ JSON schema, no tools  │
+                    └────────────────────┘   └────────────────────────┘
+                               │
+                    deterministic fallback planner (always available,
+                    labelled with its reason: timeout, cap, disabled…)
+```
+
+Admin/build notes: headers and CSP are built per request in `src/proxy.ts`, the
+service worker never touches `/api/`, and the deployment builds with no
+`.env.local` so no secret can be baked into the bundle.
 
 ---
 
@@ -34,13 +82,16 @@ Node 20+ is required.
 | `npm run build` / `npm start` | Production build / serve |
 | `npm run lint` | ESLint (flat config, includes `react/no-danger`, `no-eval`) |
 | `npm run typecheck` | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) |
-| `npm test` | Vitest unit suite (185 tests) |
+| `npm test` | Vitest unit + security suites with v8 coverage gates (336 tests) |
 | `npm run test:e2e` | Playwright smoke tests (needs `npm run build` first) |
 | `npm run test:live` | Live AI-path tests against the real Gemini API; auto-skipped when `GEMINI_API_KEY` is unset |
 | `npm run audit` | `npm audit` at every severity |
-| `npm run secrets` | gitleaks scan of the full git history |
+| `npm run secrets` / `npm run secrets:dir` | gitleaks scan of the full git history / the working tree |
 | `npm run smoke -- <url>` | Post-deploy smoke test (headers, health, CORS, service worker) |
 | `npm run check:bundles` | Greps the client bundle for keys and secret env names |
+| `npm run check:secrets-in-bundle` | Greps the deployment output for secret values, key shapes and server-only names |
+| `npm run test:security` | The attack-focused suite in `tests/security` |
+| `npm run verify` | Lint → typecheck → tests with coverage → build → both bundle scans, with no env vars |
 
 ---
 
@@ -62,6 +113,30 @@ bundle by definition.
 | `APP_ORIGIN` | prod | Exact origin (`scheme://host[:port]`) for same-origin checks, e.g. `https://cleanair.example`. Must include the scheme: a value that is not an absolute http(s) origin is reported at startup and makes every `POST /api/plan` return 403. Unset → the request `Host` is used. |
 
 ---
+
+## Evaluation evidence
+
+Every result below was produced in this environment, at the commit that contains
+this file. Re-run the command to check it; nothing here is estimated.
+
+| Area | Command to reproduce | Latest real result |
+| --- | --- | --- |
+| Code quality | `npm run lint && npm run typecheck` | eslint exit 0, `tsc --noEmit` exit 0 (strict, `noUncheckedIndexedAccess`) |
+| Testing | `npm test` | 25 test files, **336 tests passed**; coverage for `src/lib`: statements 96.86%, branches 91.65%, functions 99.41%, lines 98.58% (gate: 90/85/90/90) |
+| End-to-end | `npm run build && npm run test:e2e` | **17 Playwright tests passed** (3 languages, fallback labelling, cancel, skip, community checklist + share, print stylesheet, light/dark, limiter-unavailable, keyboard-only) |
+| Security | `npm run test:security` | 9 files, **83 tests passed** (origin/IP spoofing, oversized bodies, prompt injection, XSS, medical guard, headers/CSP, bundle secret scan, security.txt) |
+| Supply chain | `npm audit --audit-level=low` | `found 0 vulnerabilities` |
+| Secrets | `npm run secrets` (history) and `npm run secrets:dir` (working tree) | history: 23 commits, no leaks; working tree: ~544 MB scanned, no leaks |
+| Bundle secrets | `npm run check:bundles && npm run check:secrets-in-bundle` | both PASS — no key value, key shape or server-only variable name in the client bundles or deployment output |
+| Efficiency | not measured in this environment | **not verified in this environment** — no Lighthouse or bundle-size run was made after the final change |
+| Accessibility | `npm run test:e2e` (keyboard-only test, role/name locators) | Keyboard-only completion of search → plan passes; every control is reached by Tab and has an accessible name. No automated axe/WCAG scan was run, so this is **partial** |
+| Problem alignment | `npm test` (impact + regional suites) and the table below | Regional layer, "why this plan fits you", with/without estimate and community checklist covered by unit tests; see [How this addresses the problem](#how-this-addresses-the-problem) |
+| One-command check | `npm run verify` | exit 0: lint → typecheck → tests with coverage → build → client-bundle scan → deployment-output secret gate |
+
+**Not verified in this environment:** real-device accessibility with a screen
+reader, Safari/Firefox rendering, Lighthouse performance, Vercel's real proxy
+header injection, and a full manual attack on the deployed origin (the post-deploy
+smoke script covers headers, CORS, health, the service worker and live air data).
 
 ## How it works
 

@@ -26,7 +26,8 @@
     "check:secrets-in-bundle": "node scripts/check-secrets-in-bundle.mjs",
     "check": "npm run lint && npm run typecheck && npm run test",
     "test:security": "vitest run tests/security",
-    "secrets:dir": "gitleaks dir . --no-banner --redact"
+    "secrets:dir": "gitleaks dir . --no-banner --redact",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundles && npm run check:secrets-in-bundle"
   },
   "dependencies": {
     "@upstash/ratelimit": "2.2.1",
