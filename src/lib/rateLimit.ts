@@ -43,7 +43,12 @@ export class MemoryLimiter implements Limiter {
     private readonly now: () => number = Date.now,
   ) {}
 
-  async limit(key: string): Promise<LimitOutcome> {
+  /**
+   * The limiter interface is async because the shared (Upstash) one is; the
+   * in-memory fallback is synchronous, so it wraps its result rather than
+   * declaring `async` without awaiting anything.
+   */
+  limit(key: string): Promise<LimitOutcome> {
     const now = this.now();
     const existing = this.buckets.get(key);
 
@@ -51,18 +56,22 @@ export class MemoryLimiter implements Limiter {
       const resetAt = now + this.windowMs;
       this.buckets.set(key, { count: 1, resetAt });
       this.sweep(now);
-      return { success: true, remaining: this.limitCount - 1, reset: resetAt };
+      return Promise.resolve({
+        success: true,
+        remaining: this.limitCount - 1,
+        reset: resetAt,
+      });
     }
 
     if (existing.count >= this.limitCount) {
-      return { success: false, remaining: 0, reset: existing.resetAt };
+      return Promise.resolve({ success: false, remaining: 0, reset: existing.resetAt });
     }
     existing.count += 1;
-    return {
+    return Promise.resolve({
       success: true,
       remaining: this.limitCount - existing.count,
       reset: existing.resetAt,
-    };
+    });
   }
 
   /** Prevent unbounded growth from junk keys. */
@@ -83,9 +92,14 @@ export function isProductionRuntime(): boolean {
   return process.env.NODE_ENV === 'production';
 }
 
+/**
+ * Whether both Upstash variables are
+ * present and non-blank. Does not prove the limiter is reachable.
+ */
 export function upstashConfigured(): boolean {
   return Boolean(
-    readEnv('UPSTASH_REDIS_REST_URL')?.trim() && readEnv('UPSTASH_REDIS_REST_TOKEN')?.trim(),
+    readEnv('UPSTASH_REDIS_REST_URL')?.trim() &&
+    readEnv('UPSTASH_REDIS_REST_TOKEN')?.trim(),
   );
 }
 
@@ -120,8 +134,8 @@ function getRedis(): Redis | null {
   if (!upstashConfigured()) return null;
   if (!redisClient) {
     redisClient = new Redis({
-      url: readEnv('UPSTASH_REDIS_REST_URL') as string,
-      token: readEnv('UPSTASH_REDIS_REST_TOKEN') as string,
+      url: readEnv('UPSTASH_REDIS_REST_URL') ?? '',
+      token: readEnv('UPSTASH_REDIS_REST_TOKEN') ?? '',
     });
   }
   return redisClient;
@@ -206,6 +220,12 @@ function limiterUnavailable(): EnforceResult {
   };
 }
 
+/**
+ * Consume one token from the named limit
+ * for this IP and return whether the request may proceed.
+ * Fails closed: a missing or unreachable limiter returns
+ * "limiter_unavailable" rather than allowing an unmetered request.
+ */
 export async function enforceRateLimit(options: EnforceOptions): Promise<EnforceResult> {
   const key = hashIp(options.ip);
   const production = isProductionRuntime();

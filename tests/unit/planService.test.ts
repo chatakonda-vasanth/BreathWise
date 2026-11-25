@@ -136,9 +136,12 @@ describe('fallback paths', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ error: { message: 'API key not valid: AIzaLEAK' } }), {
-          status: 403,
-        }),
+        new Response(
+          JSON.stringify({ error: { message: 'API key not valid: AIzaLEAK' } }),
+          {
+            status: 403,
+          },
+        ),
       ),
     );
 
@@ -150,7 +153,10 @@ describe('fallback paths', () => {
   });
 
   it('uses the fallback when the provider rate-limits us', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 429 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 429 })),
+    );
     const result = await generatePlan(args('en'));
     expect(result.reason).toBe('rate_limited');
     expect(result.plan.generatedBy).toBe('fallback');
@@ -182,7 +188,9 @@ describe('fallback paths', () => {
     const fetchMock = vi.fn().mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 120));
       return new Response(
-        JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json at all' }] } }] }),
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: 'not json at all' }] } }],
+        }),
         { status: 200 },
       );
     });
@@ -199,7 +207,9 @@ describe('fallback paths', () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json at all' }] } }] }),
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: 'not json at all' }] } }],
+          }),
           { status: 200 },
         ),
       ),
@@ -216,7 +226,9 @@ describe('fallback paths', () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ candidates: [{ content: { parts: [{ text: 'not json at all' }] } }] }),
+          JSON.stringify({
+            candidates: [{ content: { parts: [{ text: 'not json at all' }] } }],
+          }),
           { status: 200 },
         ),
       ),

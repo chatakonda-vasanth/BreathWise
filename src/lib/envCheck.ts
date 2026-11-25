@@ -60,13 +60,18 @@ function isSet(source: EnvSource, name: RequiredEnvName): boolean {
   return Boolean(source[name]?.trim());
 }
 
+/**
+ * Classify the environment without reading
+ * secrets into logs. Pure: pass a source object in tests.
+ */
 export function inspectEnv(
   source: EnvSource = liveEnvSource(),
   production: boolean = source.NODE_ENV === 'production',
 ): EnvReport {
   const missing = REQUIRED_ENV.filter((name) => !isSet(source, name));
   const upstashMissing =
-    !isSet(source, 'UPSTASH_REDIS_REST_URL') || !isSet(source, 'UPSTASH_REDIS_REST_TOKEN');
+    !isSet(source, 'UPSTASH_REDIS_REST_URL') ||
+    !isSet(source, 'UPSTASH_REDIS_REST_TOKEN');
 
   const appOriginRaw = source.APP_ORIGIN?.trim();
 
@@ -75,7 +80,11 @@ export function inspectEnv(
     production,
     llmDisabled: !isSet(source, 'GEMINI_API_KEY'),
     rateLimitingDisabled: production && upstashMissing,
-    appOrigin: !appOriginRaw ? 'unset' : isValidOrigin(appOriginRaw) ? 'valid' : 'invalid',
+    appOrigin: !appOriginRaw
+      ? 'unset'
+      : isValidOrigin(appOriginRaw)
+        ? 'valid'
+        : 'invalid',
   };
 }
 

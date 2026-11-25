@@ -16,6 +16,11 @@ const SCRIPT_STYLE = /<(script|style|iframe|object|embed)\b[\s\S]*?<\/\1>/gi;
 const MARKDOWN_LINK = /\[([^\]]{0,200})\]\((?:[^()]|\([^()]*\)){0,300}\)/g;
 const ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/g;
 
+/**
+ * Strip control characters and cap length.
+ * Used on anything echoed from an untrusted source before it reaches a
+ * prompt or the DOM.
+ */
 export function sanitizeText(input: string, maxLength: number): string {
   let value = typeof input === 'string' ? input : '';
   value = value.replace(SCRIPT_STYLE, ' ');
@@ -30,6 +35,11 @@ export function sanitizeText(input: string, maxLength: number): string {
   return value;
 }
 
+/**
+ * Whether a string looks like it contains
+ * markup or a script payload. Advisory only: rendering never relies on it,
+ * because React escapes by default and `dangerouslySetInnerHTML` is banned.
+ */
 export function containsMarkup(value: string): boolean {
   return /<\/?[a-zA-Z][^>]*>/.test(value) || /javascript:/i.test(value);
 }
@@ -58,6 +68,13 @@ const MEDICAL_PATTERNS: readonly RegExp[] = [
   /\b(?:paracetamol|ibuprofen|azithromycin|amoxicillin|cetirizine|montelukast|salbutamol|prednisolone|corticosteroid)\b/i,
 ];
 
+/**
+ * Heuristic guard that flags
+ * dosing or prescription language in model output.
+ * Assumption: it is a safety filter, not a classifier — a false positive
+ * costs one fallback plan, a false negative could ship medical advice, so
+ * the pattern set leans towards rejecting.
+ */
 export function looksLikeMedicalAdvice(text: string): boolean {
   return MEDICAL_PATTERNS.some((pattern) => pattern.test(text));
 }

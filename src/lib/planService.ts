@@ -46,9 +46,16 @@ export interface GeneratePlanArgs {
 
 function dailyCap(): number {
   const parsed = Number(readEnv('DAILY_LLM_CAP') ?? '');
-  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : DEFAULT_DAILY_LLM_CAP;
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.floor(parsed)
+    : DEFAULT_DAILY_LLM_CAP;
 }
 
+/**
+ * Kill switch and missing-key check for the
+ * AI path. When true no model call is attempted and the labelled rule-based
+ * plan is returned.
+ */
 export function llmDisabled(): boolean {
   return readEnv('LLM_DISABLED')?.trim().toLowerCase() === 'true';
 }
@@ -64,10 +71,7 @@ export function attemptTimeoutMs(): number {
   return Math.max(1, Math.min(Math.floor(parsed), LLM_ATTEMPT_TIMEOUT_MS));
 }
 
-function fallback(
-  args: GeneratePlanArgs,
-  reason: FallbackReason,
-): Plan {
+function fallback(args: GeneratePlanArgs, reason: FallbackReason): Plan {
   return buildFallbackPlan({
     snapshot: args.snapshot,
     profile: args.profile,
@@ -104,7 +108,11 @@ function validateModelOutput(raw: string, args: GeneratePlanArgs): ValidationOut
     data.maskGuidance,
     data.schoolAndCommute,
     data.exerciseTiming,
-    ...data.indoorHacks.flatMap((item) => [item.title, item.detail, item.impact.mechanism]),
+    ...data.indoorHacks.flatMap((item) => [
+      item.title,
+      item.detail,
+      item.impact.mechanism,
+    ]),
     ...data.sustainableAlternatives.flatMap((item) => [
       item.title,
       item.detail,
@@ -161,6 +169,76 @@ export interface PlanResult {
   reason?: FallbackReason;
 }
 
+/**
+ * Produce a plan for a snapshot, profile
+ * and severity: the model when allowed, always with a deterministic fallback.
+ * Assumption: the fallback is complete guidance on its own, so an AI outage
+ * degrades detail, never safety.
+ */
+interface LlmFailure {
+  reason: FallbackReason;
+  /** Whether asking again could plausibly succeed. */
+  retryable: boolean;
+}
+
+/**
+ * Map a thrown model failure onto a fallback reason and a retry decision.
+ *
+ * Transport failures are retried once; a timeout, an invalid key or a rate
+ * limit will not improve by immediately asking again, and a retry after a
+ * timeout would hold the request for twice the LLM budget.
+ */
+function failureFromError(error: unknown): LlmFailure {
+  if (!(error instanceof LlmError)) return { reason: 'unknown', retryable: true };
+  switch (error.code) {
+    case 'timeout':
+    case 'rate_limited':
+    case 'no_api_key':
+      return { reason: error.code, retryable: false };
+    case 'invalid_output':
+      return { reason: 'invalid_output', retryable: true };
+    case 'upstream_error':
+      return { reason: 'upstream_error', retryable: true };
+  }
+}
+
+interface AttemptResult {
+  /** Set when the model produced a usable plan. */
+  plan?: Plan;
+  reason: FallbackReason;
+  retryable: boolean;
+}
+
+/**
+ * One model attempt: call, validate, and classify the outcome.
+ *
+ * A script or safety failure will not improve on a retry; a schema failure or a
+ * transport error might, which is what `retryable` carries back.
+ */
+async function attemptOnce(params: {
+  args: GeneratePlanArgs;
+  apiKey: string;
+  user: string;
+  timeoutMs: number;
+}): Promise<AttemptResult> {
+  try {
+    const raw = await callGemini({
+      system: SYSTEM_INSTRUCTION,
+      user: params.user,
+      apiKey: params.apiKey,
+      timeoutMs: params.timeoutMs,
+    });
+    const outcome = validateModelOutput(raw, params.args);
+    if (outcome.ok && outcome.plan)
+      return { plan: outcome.plan, reason: 'unknown', retryable: true };
+    const reason = outcome.reason ?? 'invalid_output';
+    const permanent = reason === 'medical_content' || reason === 'lang_mismatch';
+    return { reason, retryable: !permanent };
+  } catch (error) {
+    return { ...failureFromError(error) };
+  }
+}
+
 export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> {
   if (args.fallbackOnly) {
     return {
@@ -171,7 +249,11 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
   }
 
   if (llmDisabled()) {
-    return { plan: fallback(args, 'llm_disabled'), usedLlm: false, reason: 'llm_disabled' };
+    return {
+      plan: fallback(args, 'llm_disabled'),
+      usedLlm: false,
+      reason: 'llm_disabled',
+    };
   }
 
   const apiKey = readEnv('GEMINI_API_KEY')?.trim();
@@ -186,7 +268,6 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
     return { plan: fallback(args, reason), usedLlm: false, reason };
   }
 
-  const system = SYSTEM_INSTRUCTION;
   const user = buildUserPrompt({
     profile: args.profile,
     snapshot: args.snapshot,
@@ -199,7 +280,10 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
   // run past the deadline, and a first attempt slower than half the budget ends
   // the loop: two attempts would no longer both fit, so the caller gets the
   // labelled fallback instead of a platform timeout.
-  const budgetMs = Math.max(0, Math.min(args.budgetMs ?? LLM_TOTAL_BUDGET_MS, LLM_TOTAL_BUDGET_MS));
+  const budgetMs = Math.max(
+    0,
+    Math.min(args.budgetMs ?? LLM_TOTAL_BUDGET_MS, LLM_TOTAL_BUDGET_MS),
+  );
   const deadline = Date.now() + budgetMs;
   const retryThresholdMs = budgetMs / 2;
   // A retry needs a meaningful slice of time left; the floor never eats more
@@ -219,46 +303,15 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
     if (remainingMs < (attempt === 0 ? 1 : minRetryMs)) break;
 
     const attemptStarted = Date.now();
-    try {
-      const raw = await callGemini({
-        system,
-        user,
-        apiKey,
-        timeoutMs: Math.min(attemptCapMs, remainingMs),
-      });
-      const outcome = validateModelOutput(raw, args);
-      if (outcome.ok && outcome.plan) {
-        return { plan: outcome.plan, usedLlm: true };
-      }
-      lastReason = outcome.reason ?? 'invalid_output';
-      // A script or safety failure will not improve on retry; a schema failure might.
-      if (lastReason === 'medical_content' || lastReason === 'lang_mismatch') break;
-    } catch (error) {
-      if (error instanceof LlmError) {
-        lastReason =
-          error.code === 'timeout'
-            ? 'timeout'
-            : error.code === 'rate_limited'
-              ? 'rate_limited'
-              : error.code === 'no_api_key'
-                ? 'no_api_key'
-                : error.code === 'invalid_output'
-                  ? 'invalid_output'
-                  : 'upstream_error';
-        // Transport failures are retried once; a timeout, an invalid key or a
-        // rate limit will not improve by immediately asking again, and a retry
-        // after a timeout would hold the request for twice the LLM budget.
-        if (
-          error.code === 'no_api_key' ||
-          error.code === 'timeout' ||
-          error.code === 'rate_limited'
-        ) {
-          break;
-        }
-      } else {
-        lastReason = 'unknown';
-      }
-    }
+    const result = await attemptOnce({
+      args,
+      apiKey,
+      user,
+      timeoutMs: Math.min(attemptCapMs, remainingMs),
+    });
+    if (result.plan) return { plan: result.plan, usedLlm: true };
+    lastReason = result.reason;
+    if (!result.retryable) break;
 
     // Budget check for the retry: only a first attempt that finished inside half
     // the budget leaves room for a second one that still ends before the

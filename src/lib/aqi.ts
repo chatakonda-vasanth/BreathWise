@@ -54,22 +54,43 @@ function interpolate(concentration: number, table: readonly Breakpoint[]): numbe
   return 500;
 }
 
+/**
+ * US EPA PM2.5 sub-index, truncated to an integer.
+ * Health assumption: the EPA 24-hour breakpoints below are the ones public
+ * health messaging uses; a sub-index is not a diagnosis and does not account
+ * for individual sensitivity.
+ */
 export function pm25UsAqi(pm25: number): number {
   return interpolate(pm25, PM25_BREAKPOINTS);
 }
 
+/**
+ * US EPA PM10 sub-index, truncated to an integer.
+ * Health assumption: coarse particles count less per µg/m³ than PM2.5, which
+ * is why the breakpoints differ.
+ */
 export function pm10UsAqi(pm10: number): number {
   return interpolate(pm10, PM10_BREAKPOINTS);
 }
 
+/**
+ * US EPA NO2 sub-index, truncated to an integer.
+ */
 export function no2UsAqi(no2: number): number {
   return interpolate(no2, NO2_1H_BREAKPOINTS);
 }
 
+/**
+ * US EPA ozone sub-index, truncated to an integer.
+ */
 export function o3UsAqi(o3: number): number {
   return interpolate(o3, O3_1H_BREAKPOINTS);
 }
 
+/**
+ * UsBand for an AQI value; values outside 0-500 clamp
+ * to the nearest band instead of failing.
+ */
 export function usBand(aqi: number): UsBand {
   if (aqi <= 50) return 'good';
   if (aqi <= 100) return 'moderate';
@@ -122,6 +143,12 @@ export function usBandToSeverity(band: UsBand): SeverityBand {
  */
 export const PM25_PER_CIGARETTE = 22;
 
+/**
+ * Rough daily cigarette equivalence used for
+ * communication only: 22 µg/m³ of PM2.5 over 24 h ≈ one cigarette.
+ * Assumption: short-term exposure at this concentration, not a medical risk
+ * estimate, and never shown as a diagnosis.
+ */
 export function cigaretteEquivalent(pm25: number): number {
   if (!Number.isFinite(pm25) || pm25 <= 0) return 0;
   return Math.round((pm25 / PM25_PER_CIGARETTE) * 10) / 10;
@@ -160,6 +187,10 @@ export function severityRank(band: SeverityBand): number {
   ].indexOf(band);
 }
 
+/**
+ * The worse of two bands, using the AQI ordering.
+ * Butterfly-plots only: combine US and Indian indices without inventing a number.
+ */
 export function worseBand(a: SeverityBand, b: SeverityBand): SeverityBand {
   return severityRank(a) >= severityRank(b) ? a : b;
 }

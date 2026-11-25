@@ -2,6 +2,10 @@
 
 import type { SeverityBand } from '@/lib/types';
 
+/**
+ * Inline message. `live` turns it into an ARIA live
+ * region so a screen reader announces it.
+ */
 export function Banner({
   tone,
   title,
@@ -20,19 +24,32 @@ export function Banner({
       : tone === 'warn'
         ? 'banner banner-warn'
         : 'banner banner-info';
-  const role = tone === 'danger' || live === 'assertive' ? 'alert' : live ? 'status' : undefined;
+  const role =
+    tone === 'danger' || live === 'assertive' ? 'alert' : live ? 'status' : undefined;
   return (
-    <div className={className} role={role} aria-live={role ? (role === 'alert' ? 'assertive' : 'polite') : undefined}>
+    <div
+      className={className}
+      role={role}
+      aria-live={role ? (role === 'alert' ? 'assertive' : 'polite') : undefined}
+    >
       {title ? <p className="font-bold">{title}</p> : null}
       <div className="text-sm">{children}</div>
     </div>
   );
 }
 
+/**
+ * Decorative loading block. Hidden from assistive
+ * technology; the live status text carries the meaning.
+ */
 export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
+/**
+ * Busy card with an accessible label and
+ * `aria-busy`, used while air data is in flight.
+ */
 export function LoadingCard({ label }: { label: string }) {
   return (
     <div className="card" aria-busy="true" aria-live="polite">
@@ -49,6 +66,10 @@ export function LoadingCard({ label }: { label: string }) {
   );
 }
 
+/**
+ * AQI band chip: colour plus the band name, so
+ * colour is never the only indicator.
+ */
 export function BandChip({
   band,
   label,
@@ -66,6 +87,10 @@ export function BandChip({
   );
 }
 
+/**
+ * Label + control wrapper with hint and error text
+ * wired through ids for screen readers.
+ */
 export function Field({
   label,
   hint,
@@ -92,6 +117,10 @@ export function Field({
   );
 }
 
+/**
+ * Section heading that owns the id the
+ * section is labelled by.
+ */
 export function SectionHeading({
   id,
   children,

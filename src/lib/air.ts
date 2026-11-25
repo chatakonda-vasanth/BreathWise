@@ -9,7 +9,7 @@ import {
 } from './constants';
 import { overallUsAqi } from './aqi';
 import { coordCacheKey, isValidLatitude, isValidLongitude, normaliseCoords } from './geo';
-import {  sanitizeText } from './sanitize';
+import { sanitizeText } from './sanitize';
 import type { AirPoint, AirSnapshot, GeocodeResult } from './types';
 
 export { deriveIndices, type DerivedIndices } from './indices';
@@ -105,14 +105,15 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
+/**
+ * Upstream air-quality URL for coordinates already
+ * rounded to two decimals. Kept separate from the fetch so it is testable.
+ */
 export function buildAirUrl(lat: number, lon: number): string {
   const url = new URL('/v1/air-quality', AIR_QUALITY_HOST);
   url.searchParams.set('latitude', lat.toFixed(2));
   url.searchParams.set('longitude', lon.toFixed(2));
-  url.searchParams.set(
-    'current',
-    'pm2_5,pm10,nitrogen_dioxide,ozone,us_aqi',
-  );
+  url.searchParams.set('current', 'pm2_5,pm10,nitrogen_dioxide,ozone,us_aqi');
   url.searchParams.set('hourly', 'pm2_5,pm10,nitrogen_dioxide,ozone,us_aqi');
   url.searchParams.set('past_days', '1');
   url.searchParams.set('forecast_days', '2');
@@ -120,6 +121,9 @@ export function buildAirUrl(lat: number, lon: number): string {
   return url.toString();
 }
 
+/**
+ * Upstream geocoding URL for an already validated query.
+ */
 export function buildGeocodeUrl(query: string): string {
   const url = new URL('/v1/search', GEOCODING_HOST);
   url.searchParams.set('name', query);
@@ -142,8 +146,7 @@ function toPoint(raw: {
   const no2 = num(raw.no2);
   const o3 = num(raw.o3);
   const upstream = num(raw.usAqi);
-  const usAqi =
-    upstream ?? overallUsAqi({ pm25, pm10, no2, o3 });
+  const usAqi = upstream ?? overallUsAqi({ pm25, pm10, no2, o3 });
   return {
     time: raw.time,
     usAqi,
@@ -161,10 +164,12 @@ export function __clearAirCache(): void {
   airCache.clear();
 }
 
-export async function getAirSnapshot(
-  lat: number,
-  lon: number,
-): Promise<AirSnapshot> {
+/**
+ * Fetch and normalise an air snapshot (current,
+ * past 24 h, next 24 h) for rounded coordinates. Throws UpstreamError on any
+ * failure — callers decide whether to fall back to sample data.
+ */
+export async function getAirSnapshot(lat: number, lon: number): Promise<AirSnapshot> {
   const rounded = normaliseCoords(lat, lon);
   if (!rounded) throw new UpstreamError();
 
@@ -231,6 +236,10 @@ export async function getAirSnapshot(
   return snapshot;
 }
 
+/**
+ * Search places by name. Returns at most 20 results;
+ * throws UpstreamError when the upstream is unavailable.
+ */
 export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
   const cleaned = sanitizeText(query, MAX_CITY_QUERY);
   if (cleaned.length < 2) return [];
@@ -239,19 +248,21 @@ export async function geocodeCity(query: string): Promise<GeocodeResult[]> {
   const parsed = geocodeResponseSchema.safeParse(raw);
   if (!parsed.success) throw new UpstreamError();
 
-  return (parsed.data.results ?? [])
-    // Upstream coordinates are untrusted too: drop anything a broken or hostile
-    // geocoder returns outside the valid range instead of handing it to the UI.
-    .filter((row) => isValidLatitude(row.latitude) && isValidLongitude(row.longitude))
-    .map((row) => ({
-      id: row.id,
-      // Upstream text is untrusted: strip markup and cap length before it ever
-      // reaches the DOM or a response body.
-      name: sanitizeText(row.name, 80),
-      country: sanitizeText(row.country ?? '', 60),
-      ...(row.admin1 ? { admin1: sanitizeText(row.admin1, 80) } : {}),
-      lat: row.latitude,
-      lon: row.longitude,
-      timezone: sanitizeText(row.timezone ?? 'UTC', 60) || 'UTC',
-    }));
+  return (
+    (parsed.data.results ?? [])
+      // Upstream coordinates are untrusted too: drop anything a broken or hostile
+      // geocoder returns outside the valid range instead of handing it to the UI.
+      .filter((row) => isValidLatitude(row.latitude) && isValidLongitude(row.longitude))
+      .map((row) => ({
+        id: row.id,
+        // Upstream text is untrusted: strip markup and cap length before it ever
+        // reaches the DOM or a response body.
+        name: sanitizeText(row.name, 80),
+        country: sanitizeText(row.country ?? '', 60),
+        ...(row.admin1 ? { admin1: sanitizeText(row.admin1, 80) } : {}),
+        lat: row.latitude,
+        lon: row.longitude,
+        timezone: sanitizeText(row.timezone ?? 'UTC', 60) || 'UTC',
+      }))
+  );
 }

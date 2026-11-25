@@ -14,6 +14,10 @@ import { SectionHeading } from './ui';
  * - local, seasonal context that never leaves the browser.
  */
 
+/**
+ * Explains why the plan
+ * matches this household, from the profile only.
+ */
 export function WhyThisPlanFits({
   profile,
   lang,
@@ -34,6 +38,10 @@ export function WhyThisPlanFits({
   );
 }
 
+/**
+ * Before/after estimate for
+ * the top recommendations, with the assumption stated next to the number.
+ */
 export function WithWithoutCard({
   pm25,
   profile,
@@ -50,7 +58,11 @@ export function WithWithoutCard({
   const estimate = `(${labels.roughEstimate})`;
 
   return (
-    <section className="card mt-3" aria-labelledby="impact-heading" data-testid="with-without">
+    <section
+      className="card mt-3"
+      aria-labelledby="impact-heading"
+      data-testid="with-without"
+    >
       <SectionHeading id="impact-heading">{labels.title}</SectionHeading>
 
       <table className="mt-2 w-full text-sm">
@@ -89,7 +101,9 @@ export function WithWithoutCard({
       <p className="hint mt-2">{labels.note}</p>
 
       <details className="mt-2">
-        <summary className="cursor-pointer text-sm font-semibold">{labels.assumptions}</summary>
+        <summary className="cursor-pointer text-sm font-semibold">
+          {labels.assumptions}
+        </summary>
         <ul className="mt-2 space-y-2 text-sm">
           {comparison.steps.map((step) => (
             <li key={step.id}>
@@ -105,6 +119,10 @@ export function WithWithoutCard({
   );
 }
 
+/**
+ * Regional context card
+ * (season, burning, festivals) for the selected coordinates.
+ */
 export function LocalContextCard({
   lat,
   lon,
@@ -121,7 +139,11 @@ export function LocalContextCard({
   const labels = regionalLabels(lang);
 
   return (
-    <section className="card mt-3" aria-labelledby="local-heading" data-testid="local-context">
+    <section
+      className="card mt-3"
+      aria-labelledby="local-heading"
+      data-testid="local-context"
+    >
       <SectionHeading id="local-heading">{labels.title}</SectionHeading>
       <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
         {context.notes.map((note) => (

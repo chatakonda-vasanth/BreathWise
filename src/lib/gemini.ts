@@ -16,11 +16,7 @@ import { readEnv } from './env';
 export class LlmError extends Error {
   constructor(
     readonly code:
-      | 'timeout'
-      | 'upstream_error'
-      | 'rate_limited'
-      | 'invalid_output'
-      | 'no_api_key',
+      'timeout' | 'upstream_error' | 'rate_limited' | 'invalid_output' | 'no_api_key',
   ) {
     super(code);
     this.name = 'LlmError';
@@ -29,6 +25,10 @@ export class LlmError extends Error {
 
 const SAFE_MODEL_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/;
 
+/**
+ * Configured model id, or the built-in default.
+ * Never includes the "models/" prefix and is never logged with a key.
+ */
 export function getModelId(): string {
   const configured = readEnv('GEMINI_MODEL')?.trim();
   if (configured && SAFE_MODEL_ID.test(configured)) return configured;

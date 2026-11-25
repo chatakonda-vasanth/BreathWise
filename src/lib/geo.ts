@@ -19,10 +19,16 @@ export function roundCoord(value: number): number {
   return Object.is(rounded, -0) ? 0 : rounded;
 }
 
+/**
+ * Whether a latitude is a finite number in range.
+ */
 export function isValidLatitude(value: number): boolean {
   return Number.isFinite(value) && value >= LAT_MIN && value <= LAT_MAX;
 }
 
+/**
+ * Whether a longitude is a finite number in range.
+ */
 export function isValidLongitude(value: number): boolean {
   return Number.isFinite(value) && value >= LON_MIN && value <= LON_MAX;
 }

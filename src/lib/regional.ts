@@ -136,34 +136,69 @@ const NOTES: Record<Language, Record<NoteKey, string>> = {
   },
 };
 
-export function regionalContext(lat: number, lon: number, date: Date, language: Language): RegionalContext {
-  const region = coarseRegion(lat, lon);
-  const season = seasonFor(date.getUTCMonth());
-  const cropBurningSeason =
-    (region === 'north' || region === 'west' || region === 'central') &&
-    (date.getUTCMonth() === 9 || date.getUTCMonth() === 10);
-  const inversionLikely =
-    (region === 'north' || region === 'central') &&
-    (date.getUTCMonth() === 11 || date.getUTCMonth() === 0);
-  const heatingFuel = heatingFuelFor(region);
+/**
+ * Region-specific framing (monsoon,
+ * stubble burning, festival smoke) for the plan. Assumption: the heuristics
+ * are communication aids chosen from the coordinates' country, not a
+ * scientific forecast.
+ */
+type SeasonalNotes = (typeof NOTES)[Language];
 
-  const copy = NOTES[language];
+/** Stubble burning peaks in the last two weeks of October into November. */
+function isCropBurningSeason(region: string, month: number): boolean {
+  const inRegion = region === 'north' || region === 'west' || region === 'central';
+  return inRegion && (month === 9 || month === 10);
+}
+
+/** Winter inversions trap smoke near the ground in the northern plains. */
+function isInversionLikely(region: string, month: number): boolean {
+  const inRegion = region === 'north' || region === 'central';
+  return inRegion && (month === 11 || month === 0);
+}
+
+/** Pick the seasonal notes that apply, always leaving at least one. */
+function seasonalNotes(
+  copy: SeasonalNotes,
+  season: RegionalContext['season'],
+  heatingFuel: RegionalContext['heatingFuel'],
+  flags: { cropBurningSeason: boolean; inversionLikely: boolean },
+): string[] {
   const notes: string[] = [];
-
-  if (cropBurningSeason) notes.push(copy.cropBurning);
-  if (inversionLikely) notes.push(copy.inversion);
-  if (season === 'winter' && (heatingFuel === 'biomass' || heatingFuel === 'mixed')) {
-    notes.push(copy.biomassHeating);
-  }
+  if (flags.cropBurningSeason) notes.push(copy.cropBurning);
+  if (flags.inversionLikely) notes.push(copy.inversion);
+  const solidFuel = heatingFuel === 'biomass' || heatingFuel === 'mixed';
+  if (season === 'winter' && solidFuel) notes.push(copy.biomassHeating);
   if (season === 'monsoon') notes.push(copy.monsoonWashout);
   if (season === 'preMonsoon') notes.push(copy.preMonsoonDust);
   if (notes.length === 0) notes.push(copy.generalWinter);
+  return notes;
+}
+
+export function regionalContext(
+  lat: number,
+  lon: number,
+  date: Date,
+  language: Language,
+): RegionalContext {
+  const region = coarseRegion(lat, lon);
+  const month = date.getUTCMonth();
+  const season = seasonFor(month);
+  const cropBurningSeason = isCropBurningSeason(region, month);
+  const inversionLikely = isInversionLikely(region, month);
+  const heatingFuel = heatingFuelFor(region);
+  const notes = seasonalNotes(NOTES[language], season, heatingFuel, {
+    cropBurningSeason,
+    inversionLikely,
+  });
 
   return { region, season, cropBurningSeason, inversionLikely, heatingFuel, notes };
 }
 
 /** Label pair for the UI, so the estimate wording cannot drift. */
-export function regionalLabels(language: Language): { title: string; assumption: string } {
+export function regionalLabels(language: Language): {
+  title: string;
+  assumption: string;
+} {
   return {
     title: LANGUAGE_NOTE[language].regional,
     assumption: LANGUAGE_NOTE[language].assumption,

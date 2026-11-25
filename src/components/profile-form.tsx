@@ -20,6 +20,10 @@ const NUMBER_FIELDS = [
   { key: 'elderly', labelKey: 'elderly', max: 8 },
 ] as const;
 
+/**
+ * The quick profile form. Every
+ * control is a closed choice, so nothing typed can reach the model.
+ */
 export function ProfileForm({
   lang,
   value,

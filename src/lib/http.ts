@@ -20,7 +20,8 @@ const ERROR_MESSAGES: Record<ErrorCode, string> = {
   upstream_unavailable: 'Live air data is temporarily unavailable.',
   body_too_large: 'The request was too large.',
   unsupported_media_type: 'Unsupported content type.',
-  service_unavailable: 'The service is temporarily unavailable. Please try again shortly.',
+  service_unavailable:
+    'The service is temporarily unavailable. Please try again shortly.',
   server_error: 'Something went wrong. Please try again.',
 };
 
@@ -35,6 +36,10 @@ const ERROR_STATUS: Record<ErrorCode, number> = {
   server_error: 500,
 };
 
+/**
+ * JSON error body with a short machine code and
+ * no internal detail. Never echoes the request back.
+ */
 export function errorResponse(code: ErrorCode, extraHeaders?: HeadersInit): Response {
   const body: { error: ErrorCode; message: string } = {
     error: code,
@@ -47,7 +52,16 @@ export function errorResponse(code: ErrorCode, extraHeaders?: HeadersInit): Resp
   return new Response(JSON.stringify(body), { status: ERROR_STATUS[code], headers });
 }
 
-export function jsonResponse(body: unknown, status = 200, extraHeaders?: HeadersInit): Response {
+/**
+ * JSON success body. Always `Cache-Control:
+ * no-store`: API answers are personalised or short-lived and must not be
+ * cached by the browser, a proxy or a service worker.
+ */
+export function jsonResponse(
+  body: unknown,
+  status = 200,
+  extraHeaders?: HeadersInit,
+): Response {
   const headers = new Headers(extraHeaders);
   headers.set('Content-Type', 'application/json; charset=utf-8');
   headers.set('Cache-Control', 'no-store');
@@ -75,7 +89,8 @@ export function canonicalIp(value: string): string | null {
   if (IPV4.test(candidate)) {
     const parts = candidate.split('.').map((part) => Number(part));
     if (parts.length !== 4) return null;
-    if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+    if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255))
+      return null;
     return parts.join('.');
   }
 
@@ -139,7 +154,8 @@ export interface ClientIpOptions {
  * variants of one address cannot select different buckets.
  */
 export function getClientIp(headers: Headers, options: ClientIpOptions = {}): string {
-  const trustForwardedFor = options.trustForwardedFor ?? process.env.NODE_ENV !== 'production';
+  const trustForwardedFor =
+    options.trustForwardedFor ?? process.env.NODE_ENV !== 'production';
 
   // Last entry, not first: these are platform-written and a proxy appends, so
   // the entry Vercel vouched for is at the end of the chain.
@@ -193,40 +209,27 @@ export function isValidOrigin(value: string): boolean {
  * alongside SameSite cookies — this app has no cookies, but the rule stands).
  * Fails closed when Origin is absent.
  */
-export function checkOrigin(request: Request): OriginCheck {
-  const method = request.method.toUpperCase();
-  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return { ok: true };
+/** Compare against the origin the operator pinned in APP_ORIGIN. */
+function matchesPinnedOrigin(requestOrigin: string, configured: string): OriginCheck {
+  // Scheme, host and port must all match. An unparseable value fails closed
+  // instead of silently unpinning the check.
+  const configuredOrigin = absoluteOrigin(configured);
+  if (!configuredOrigin) return { ok: false, reason: 'invalid_config' };
+  return requestOrigin === configuredOrigin
+    ? { ok: true }
+    : { ok: false, reason: 'mismatch' };
+}
 
-  const fetchSite = request.headers.get('sec-fetch-site');
-  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
-    return { ok: false, reason: fetchSite === 'cross-site' ? 'cross_site' : 'mismatch' };
-  }
-
-  const origin = request.headers.get('origin');
-  if (!origin) return { ok: false, reason: 'missing_origin' };
-
-  const requestOrigin = absoluteOrigin(origin);
-  // "null" (sandboxed frame), "file://", a bare host name or anything odd fails.
-  if (!requestOrigin) return { ok: false, reason: 'mismatch' };
-
-  const configured = readEnv('APP_ORIGIN')?.trim();
-  if (configured) {
-    // The operator pinned one origin: scheme, host and port must all match. An
-    // unparseable value fails closed instead of silently unpinning the check.
-    const configuredOrigin = absoluteOrigin(configured);
-    if (!configuredOrigin) return { ok: false, reason: 'invalid_config' };
-    return requestOrigin === configuredOrigin
-      ? { ok: true }
-      : { ok: false, reason: 'mismatch' };
-  }
-
-  // No APP_ORIGIN: compare against the host the client actually addressed.
-  //
-  // `Host` is a forbidden header name, so page script cannot forge it, and it
-  // is what the browser's `Origin` was derived from. `x-forwarded-host` is only
-  // a fallback for a proxy that rewrites Host, and its **last** entry is used: a
-  // client can set `X-Forwarded-Host` in a fetch, and a proxy appends the host
-  // it really forwarded to, so the last entry is the one that was vouched for.
+/**
+ * Compare against the host the client actually addressed.
+ *
+ * `Host` is a forbidden header name, so page script cannot forge it, and it is
+ * what the browser's `Origin` was derived from. `x-forwarded-host` is only a
+ * fallback for a proxy that rewrites Host, and its **last** entry is used: a
+ * client can set `X-Forwarded-Host` in a fetch, and a proxy appends the host it
+ * really forwarded to, so the last entry is the one that was vouched for.
+ */
+function matchesRequestHost(request: Request, requestOrigin: string): OriginCheck {
   const hostHeader = request.headers.get('host')?.trim();
   const forwardedHost = request.headers.get('x-forwarded-host');
   const forwardedEntries = forwardedHost
@@ -247,13 +250,34 @@ export function checkOrigin(request: Request): OriginCheck {
     : { ok: false, reason: 'mismatch' };
 }
 
+export function checkOrigin(request: Request): OriginCheck {
+  const method = request.method.toUpperCase();
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return { ok: true };
+
+  const fetchSite = request.headers.get('sec-fetch-site');
+  if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
+    return { ok: false, reason: fetchSite === 'cross-site' ? 'cross_site' : 'mismatch' };
+  }
+
+  const origin = request.headers.get('origin');
+  if (!origin) return { ok: false, reason: 'missing_origin' };
+
+  const requestOrigin = absoluteOrigin(origin);
+  // "null" (sandboxed frame), "file://", a bare host name or anything odd fails.
+  if (!requestOrigin) return { ok: false, reason: 'mismatch' };
+
+  const configured = readEnv('APP_ORIGIN')?.trim();
+  return configured
+    ? matchesPinnedOrigin(requestOrigin, configured)
+    : matchesRequestHost(request, requestOrigin);
+}
+
 export type BodyResult =
   | { ok: true; value: unknown }
   | { ok: false; reason: 'too_large' | 'invalid_json' | 'unsupported_media_type' };
 
 type TextResult =
-  | { ok: true; text: string }
-  | { ok: false; reason: 'too_large' | 'invalid_json' };
+  { ok: true; text: string } | { ok: false; reason: 'too_large' | 'invalid_json' };
 
 /**
  * Read at most `maxBytes` from the request stream and cancel the rest.
@@ -322,7 +346,10 @@ export async function readJsonBody(
 ): Promise<BodyResult> {
   // Compare the media type exactly. A substring test accepts nonsense such as
   // `text/plain; x=application/json`; the body must really be JSON.
-  const mediaType = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
+  const mediaType = (request.headers.get('content-type') ?? '')
+    .split(';')[0]
+    ?.trim()
+    .toLowerCase();
   if (mediaType !== 'application/json') {
     return { ok: false, reason: 'unsupported_media_type' };
   }

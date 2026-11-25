@@ -20,6 +20,10 @@ interface CitySearchProps {
 
 type GeoState = 'idle' | 'consent' | 'locating' | 'error';
 
+/**
+ * City search box with debounced
+ * lookups and an explicit optional-geolocation path.
+ */
 export function CitySearch({ lang, onSelect }: CitySearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodeResult[] | null>(null);
@@ -121,7 +125,11 @@ export function CitySearch({ lang, onSelect }: CitySearchProps) {
           <Banner tone="info" title={t(lang, 'geoTitle')}>
             <p id="geo-consent-title">{t(lang, 'geoBody')}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className="btn btn-primary" onClick={allowGeolocation}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={allowGeolocation}
+              >
                 {t(lang, 'allow')}
               </button>
               <button type="button" className="btn" onClick={() => setGeoState('idle')}>
@@ -170,8 +178,12 @@ export function CitySearch({ lang, onSelect }: CitySearchProps) {
               >
                 <span>
                   <strong>{result.name}</strong>
-                  {result.admin1 ? <span className="opacity-75"> · {result.admin1}</span> : null}
-                  {result.country ? <span className="opacity-75"> · {result.country}</span> : null}
+                  {result.admin1 ? (
+                    <span className="opacity-75"> · {result.admin1}</span>
+                  ) : null}
+                  {result.country ? (
+                    <span className="opacity-75"> · {result.country}</span>
+                  ) : null}
                 </span>
               </button>
             </li>

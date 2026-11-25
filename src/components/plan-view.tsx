@@ -19,7 +19,8 @@ export function planToText(plan: Plan, lang: Language): string {
         : t(lang, 'confidenceLow');
 
   lines.push(`${t(lang, 'appName')} — ${t(lang, 'planFor')}: ${plan.headline}`);
-  if (plan.medicalAlert) lines.push(`\n${t(lang, 'medicalAlertTitle')}: ${plan.medicalAlert}`);
+  if (plan.medicalAlert)
+    lines.push(`\n${t(lang, 'medicalAlertTitle')}: ${plan.medicalAlert}`);
   lines.push(`\n${t(lang, 'whatThisMeans')}\n${plan.whatThisMeans.text}`);
   lines.push(`\n${t(lang, 'cigarette')}: ${plan.whatThisMeans.cigaretteEquivalent}`);
   lines.push(`(${t(lang, 'assumption')}: ${plan.whatThisMeans.assumption})`);
@@ -118,6 +119,10 @@ interface PlanViewProps {
   lon?: number | null;
 }
 
+/**
+ * Plan screen: headline, what this means,
+ * indoor hacks, sustainable alternatives, print and share actions.
+ */
 export function PlanView({
   plan,
   lang,
@@ -276,7 +281,9 @@ export function PlanView({
         <h3 className="text-base font-bold">{t(lang, 'whatThisMeans')}</h3>
         <p className="mt-1 text-sm">{plan.whatThisMeans.text}</p>
         <div className="mt-3 rounded-lg border border-[var(--border)] p-3">
-          <p className="text-xs font-bold uppercase tracking-wide">{t(lang, 'cigarette')}</p>
+          <p className="text-xs font-bold uppercase tracking-wide">
+            {t(lang, 'cigarette')}
+          </p>
           <p className="mt-1 text-sm">{plan.whatThisMeans.cigaretteEquivalent}</p>
           <p className="hint mt-1">
             {t(lang, 'assumption')}: {plan.whatThisMeans.assumption}
@@ -307,7 +314,12 @@ export function PlanView({
         <SectionHeading id="indoor-heading">{t(lang, 'indoor')}</SectionHeading>
         <ul className="mt-2 grid gap-3" role="list">
           {plan.indoorHacks.map((item, index) => (
-            <RecommendationCard key={`${item.title}-${index}`} item={item} lang={lang} index={index} />
+            <RecommendationCard
+              key={`${item.title}-${index}`}
+              item={item}
+              lang={lang}
+              index={index}
+            />
           ))}
         </ul>
       </section>
@@ -327,7 +339,9 @@ export function PlanView({
       </section>
 
       <section className="mt-5" aria-labelledby="community-heading">
-        <SectionHeading id="community-heading">{t(lang, 'communityTitle')}</SectionHeading>
+        <SectionHeading id="community-heading">
+          {t(lang, 'communityTitle')}
+        </SectionHeading>
         <div className="card mt-2">
           <p className="hint">{t(lang, 'communityHelp')}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
@@ -344,7 +358,12 @@ export function PlanView({
       </section>
 
       <div className="mt-4 flex flex-wrap gap-2 no-print">
-        <button type="button" className="btn" onClick={toggleReading} aria-pressed={speaking}>
+        <button
+          type="button"
+          className="btn"
+          onClick={toggleReading}
+          aria-pressed={speaking}
+        >
           {speaking ? t(lang, 'stopReading') : t(lang, 'readAloud')}
         </button>
         <button type="button" className="btn" onClick={copyText}>

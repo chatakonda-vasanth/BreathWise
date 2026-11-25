@@ -70,22 +70,37 @@ function subIndex(concentration: number, table: readonly Breakpoint[]): number {
   return 500;
 }
 
+/**
+ * CPCB PM2.5 sub-index (24-hour average basis).
+ */
 export function pm25SubIndex(pm25: number): number {
   return subIndex(pm25, PM25_BREAKPOINTS);
 }
 
+/**
+ * CPCB PM10 sub-index (24-hour average basis).
+ */
 export function pm10SubIndex(pm10: number): number {
   return subIndex(pm10, PM10_BREAKPOINTS);
 }
 
+/**
+ * CPCB NO2 sub-index.
+ */
 export function no2SubIndex(no2: number): number {
   return subIndex(no2, NO2_BREAKPOINTS);
 }
 
+/**
+ * CPCB ozone sub-index.
+ */
 export function o3SubIndex(o3: number): number {
   return subIndex(o3, O3_BREAKPOINTS);
 }
 
+/**
+ * CPCB band for a National AQI value.
+ */
 export function naqiBand(index: number): NaqiBand {
   if (index <= 50) return 'good';
   if (index <= 100) return 'satisfactory';
@@ -103,6 +118,11 @@ export interface NaqiResult {
   subIndices: Record<NaqiPollutant, number>;
 }
 
+/**
+ * National AQI from pollutant
+ * concentrations: the worst sub-index wins, and the dominant pollutant is the
+ * one that produced it. Assumption: 24-hour averages, like the CPCB bulletin.
+ */
 export function naqiFromConcentrations(values: {
   pm25?: number | null;
   pm10?: number | null;
@@ -130,6 +150,10 @@ export function naqiFromConcentrations(values: {
   return { value, band: naqiBand(value), dominantPollutant: dominant, subIndices };
 }
 
+/**
+ * Map a CPCB band onto the single severity
+ * vocabulary the UI uses.
+ */
 export function naqiBandToSeverity(band: NaqiBand): SeverityBand {
   switch (band) {
     case 'good':

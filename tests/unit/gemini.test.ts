@@ -14,11 +14,19 @@ const OK_BODY = JSON.stringify({
 describe('callGemini transport', () => {
   it('sends only fetch options that workerd accepts', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(OK_BODY, { status: 200, headers: { 'content-type': 'application/json' } }),
+      new Response(OK_BODY, {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await callGemini({ apiKey: 'test-key', system: 's', user: 'u', model: 'gemini-3.5-flash' });
+    await callGemini({
+      apiKey: 'test-key',
+      system: 's',
+      user: 'u',
+      model: 'gemini-3.5-flash',
+    });
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
     expect(init?.redirect).toBe('manual');
     expect(init?.cache).toBe('no-store');
@@ -35,7 +43,12 @@ describe('callGemini transport', () => {
       ),
     );
     await expect(
-      callGemini({ apiKey: 'test-key', system: 's', user: 'u', model: 'gemini-3.5-flash' }),
+      callGemini({
+        apiKey: 'test-key',
+        system: 's',
+        user: 'u',
+        model: 'gemini-3.5-flash',
+      }),
     ).rejects.toBeInstanceOf(LlmError);
   });
 });

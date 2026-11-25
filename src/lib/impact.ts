@@ -125,7 +125,8 @@ const STEP_COPY: Record<
     },
     mask: {
       label: 'ज़रूरी बाहरी यात्राओं में अच्छी तरह फिट N95/FFP2 मास्क पहनें',
-      assumption: 'मान्यता: नाक के पास अच्छी सील और प्रमाणित मास्क; ढीला या कपड़े का मास्क बहुत कम रोकता है।',
+      assumption:
+        'मान्यता: नाक के पास अच्छी सील और प्रमाणित मास्क; ढीला या कपड़े का मास्क बहुत कम रोकता है।',
     },
   },
   te: {
@@ -145,7 +146,8 @@ const STEP_COPY: Record<
     },
     mask: {
       label: 'తప్పనిసరి బయటి ప్రయాణాలకు సరిగా కూర్చున్న N95/FFP2 మాస్క్ పెట్టుకోండి',
-      assumption: 'ఊహ: ముక్కు దగ్గర మంచి సీల్, ధృవీకరించిన మాస్క్; వదులుగా లేదా గుడ్డ మాస్క్ చాలా తక్కువ నిరోధిస్తుంది.',
+      assumption:
+        'ఊహ: ముక్కు దగ్గర మంచి సీల్, ధృవీకరించిన మాస్క్; వదులుగా లేదా గుడ్డ మాస్క్ చాలా తక్కువ నిరోధిస్తుంది.',
     },
   },
 };
@@ -194,8 +196,7 @@ export function compareWithWithout(args: {
   const windows = profile.windows ?? DEFAULTS.windows;
   const copy = STEP_COPY[language];
 
-  const purifierPct =
-    budget === 'low' ? IMPACT_FACTORS.diyBox : IMPACT_FACTORS.hepa;
+  const purifierPct = budget === 'low' ? IMPACT_FACTORS.diyBox : IMPACT_FACTORS.hepa;
   const sealPct =
     windows === 'single'
       ? IMPACT_FACTORS.sealSingle
@@ -208,7 +209,10 @@ export function compareWithWithout(args: {
       id: 'purifier',
       reductionPct: purifierPct,
       appliesTo: 'room',
-      label: budget === 'low' ? (copy.purifier.diy ?? copy.purifier.label) : copy.purifier.label,
+      label:
+        budget === 'low'
+          ? (copy.purifier.diy ?? copy.purifier.label)
+          : copy.purifier.label,
       assumption: copy.purifier.assumption,
     },
     {
@@ -284,12 +288,14 @@ const WHY: Record<
       `Commute mode: ${mode} — the school and commute guidance is written for that exposure.`,
     budget: (budget) =>
       `Budget: ${budget} — a free or low-cost option is listed before anything you have to buy.`,
-    room: (area) => `Main room: about ${area} m² — the purifier sizing and the estimate use that area.`,
+    room: (area) =>
+      `Main room: about ${area} m² — the purifier sizing and the estimate use that area.`,
   },
   hi: {
     household: (adults, children, elderly) =>
       `परिवार: ${adults} वयस्क, ${children} बच्चे, ${elderly} बुज़ुर्ग — बाहर का समय और मास्क पूरे परिवार के हिसाब से हैं।`,
-    sensitive: 'संवेदनशील सदस्य शामिल हैं, इसलिए बाहरी मेहनत जल्दी घटाई गई है और मास्क सलाह सख्त है।',
+    sensitive:
+      'संवेदनशील सदस्य शामिल हैं, इसलिए बाहरी मेहनत जल्दी घटाई गई है और मास्क सलाह सख्त है।',
     pregnant: 'कोई गर्भवती है, इसलिए लंबे बाहरी दौरे कम प्राथमिकता पर रखे गए हैं।',
     symptoms: 'आज लक्षण बताए गए हैं, इसलिए योजना में व्यायाम लक्ष्य के बजाय चिकित्सा-सुरक्षा सूचना है।',
     home: (home, windows) =>
@@ -297,14 +303,15 @@ const WHY: Record<
     kitchen: (ventilation) =>
       `रसोई वेंटिलेशन: ${ventilation} — खाना पकाने के धुएँ की सलाह शामिल है क्योंकि भीतरी दहन अक्सर सबसे बड़ा स्रोत है।`,
     commute: (mode) => `यात्रा साधन: ${mode} — स्कूल और यात्रा मार्गदर्शन उसी जोखिम के लिए है।`,
-    budget: (budget) => `बजट: ${budget} — मुफ़्त या सस्ता उपाय खरीदने वाले उपाय से पहले दिया गया है।`,
-    room: (area) => `मुख्य कमरा: लगभग ${area} m² — प्यूरीफ़ायर आकार और अनुमान इसी क्षेत्र पर आधारित हैं।`,
+    budget: (budget) =>
+      `बजट: ${budget} — मुफ़्त या सस्ता उपाय खरीदने वाले उपाय से पहले दिया गया है।`,
+    room: (area) =>
+      `मुख्य कमरा: लगभग ${area} m² — प्यूरीफ़ायर आकार और अनुमान इसी क्षेत्र पर आधारित हैं।`,
   },
   te: {
     household: (adults, children, elderly) =>
       `కుటుంబం: ${adults} పెద్దలు, ${children} పిల్లలు, ${elderly} వృద్ధులు — బయటి సమయం, మాస్క్ సలహా మొత్తం కుటుంబానికి సరిపడా.`,
-    sensitive:
-      'సున్నితమైన వర్గ సభ్యుడు ఉన్నారు, కాబట్టి బయటి శ్రమ త్వరగా తగ్గించబడింది, మాస్క్ సలహా బలంగా ఉంది.',
+    sensitive: 'సున్నితమైన వర్గ సభ్యుడు ఉన్నారు, కాబట్టి బయటి శ్రమ త్వరగా తగ్గించబడింది, మాస్క్ సలహా బలంగా ఉంది.',
     pregnant: 'ఎవరో గర్భవతి, కాబట్టి దీర్ఘ బయటి ప్రయాణాలకు తక్కువ ప్రాధాన్యం.',
     symptoms: 'ఈరోజు లక్షణాలు నమోదయ్యాయి, కాబట్టి వ్యాయామ లక్ష్యాలకు బదులు వైద్య-భద్రతా సూచన ఉంది.',
     home: (home, windows) =>
@@ -312,10 +319,24 @@ const WHY: Record<
     kitchen: (ventilation) =>
       `వంటగది వెంటిలేషన్: ${ventilation} — వంట పొగ సలహా చేర్చబడింది, ఎందుకంటే లోపలి దహనం సాధారణంగా అతిపెద్ద మూలం.`,
     commute: (mode) => `ప్రయాణ విధానం: ${mode} — పాఠశాల, ప్రయాణ మార్గదర్శనం ఆ బహిర్గతానికి సరిపోతుంది.`,
-    budget: (budget) => `బడ్జెట్: ${budget} — ఉచిత లేదా తక్కువ ఖర్చు ఎంపిక కొనాల్సిన దానికి ముందు ఇవ్వబడింది.`,
+    budget: (budget) =>
+      `బడ్జెట్: ${budget} — ఉచిత లేదా తక్కువ ఖర్చు ఎంపిక కొనాల్సిన దానికి ముందు ఇవ్వబడింది.`,
     room: (area) => `ప్రధాన గది: సుమారు ${area} m² — ప్యూరిఫైయర్ పరిమాణం, అంచనా ఈ విస్తీర్ణంపై ఆధారపడతాయి.`,
   },
 };
+
+type WhyCopy = (typeof WHY)[Language];
+
+/** The household lines, which are the only conditional ones. */
+function householdReasons(profile: Partial<Profile>, copy: WhyCopy): string[] {
+  const reasons = [
+    copy.household(profile.adults ?? 2, profile.children ?? 1, profile.elderly ?? 0),
+  ];
+  if (profile.sensitiveGroup ?? false) reasons.push(copy.sensitive);
+  if (profile.pregnant ?? false) reasons.push(copy.pregnant);
+  if (profile.symptoms ?? false) reasons.push(copy.symptoms);
+  return reasons;
+}
 
 /** Inputs that visibly shaped the plan, in the user's language. */
 export function whyThisPlanFits(
@@ -324,19 +345,14 @@ export function whyThisPlanFits(
 ): string[] {
   const p = profile ?? {};
   const copy = WHY[language];
-  const reasons: string[] = [];
+  const reasons = householdReasons(p, copy);
 
-  reasons.push(
-    copy.household(p.adults ?? 2, p.children ?? 1, p.elderly ?? 0),
-  );
-  if (p.sensitiveGroup ?? false) reasons.push(copy.sensitive);
-  if (p.pregnant ?? false) reasons.push(copy.pregnant);
-  if (p.symptoms ?? false) reasons.push(copy.symptoms);
   reasons.push(copy.home(p.homeType ?? DEFAULTS.homeType, p.windows ?? DEFAULTS.windows));
   reasons.push(copy.kitchen(p.kitchenVentilation ?? DEFAULTS.kitchenVentilation));
   reasons.push(copy.commute(p.commuteMode ?? DEFAULTS.commuteMode));
   reasons.push(copy.budget(p.budget ?? DEFAULTS.budget));
-  if (typeof p.roomSizeSqm === 'number') reasons.push(copy.room(Math.round(p.roomSizeSqm)));
+  if (typeof p.roomSizeSqm === 'number')
+    reasons.push(copy.room(Math.round(p.roomSizeSqm)));
 
   return reasons;
 }

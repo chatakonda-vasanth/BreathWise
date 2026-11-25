@@ -11,13 +11,13 @@ import { AIR_SOURCE_LABEL } from './constants';
  */
 
 const HISTORY_PM25 = [
-  96, 92, 88, 84, 81, 79, 77, 80, 88, 96, 104, 112, 118, 124, 130, 136, 142, 148,
-  152, 156, 150, 142, 132, 120,
+  96, 92, 88, 84, 81, 79, 77, 80, 88, 96, 104, 112, 118, 124, 130, 136, 142, 148, 152,
+  156, 150, 142, 132, 120,
 ];
 
 const FORECAST_PM25 = [
-  112, 108, 104, 100, 96, 94, 92, 96, 104, 112, 120, 128, 136, 142, 148, 150,
-  144, 136, 128, 120, 112, 106, 100, 96,
+  112, 108, 104, 100, 96, 94, 92, 96, 104, 112, 120, 128, 136, 142, 148, 150, 144, 136,
+  128, 120, 112, 106, 100, 96,
 ];
 
 function point(time: string, pm25: number): AirPoint {
@@ -40,6 +40,11 @@ function buildSeries(offsets: number[], baseHour: number): AirPoint[] {
   });
 }
 
+/**
+ * Clearly labelled demo snapshot
+ * used when live air data is unavailable. `isSample: true` is what the UI
+ * banners key off, so sample values can never be mistaken for live ones.
+ */
 export function createSampleSnapshot(): AirSnapshot {
   const history = buildSeries(HISTORY_PM25, -24);
   const forecast = buildSeries(FORECAST_PM25, 0);

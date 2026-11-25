@@ -16,6 +16,12 @@ export interface DerivedIndices {
   changeSinceYesterday: number | null;
 }
 
+/**
+ * Everything the UI shows about an air
+ * snapshot: US AQI and band, National AQI and band, unified severity, and the
+ * change since yesterday. Pure and deterministic, so the client can rebuild
+ * it for sample data and tests can pin it.
+ */
 export function deriveIndices(snapshot: AirSnapshot): DerivedIndices {
   const usAqi = snapshot.current.usAqi ?? overallUsAqi({ pm25: snapshot.current.pm25 });
 
@@ -33,9 +39,7 @@ export function deriveIndices(snapshot: AirSnapshot): DerivedIndices {
 
   const dayAgo = snapshot.history.at(-24) ?? snapshot.history.at(0) ?? null;
   const changeSinceYesterday =
-    dayAgo && typeof dayAgo.usAqi === 'number'
-      ? Math.round(usAqi - dayAgo.usAqi)
-      : null;
+    dayAgo && typeof dayAgo.usAqi === 'number' ? Math.round(usAqi - dayAgo.usAqi) : null;
 
   return { usAqi, usBand: usBand(usAqi), naqi, severity, changeSinceYesterday };
 }
