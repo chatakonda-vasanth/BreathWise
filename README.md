@@ -126,11 +126,12 @@ this file. Re-run the command to check it; nothing here is estimated.
 | End-to-end | `npm run build && npm run test:e2e` | **17 Playwright tests passed** (3 languages, fallback labelling, cancel, skip, community checklist + share, print stylesheet, light/dark, limiter-unavailable, keyboard-only) |
 | Security | `npm run test:security` | 9 files, **83 tests passed** (origin/IP spoofing, oversized bodies, prompt injection, XSS, medical guard, headers/CSP, bundle secret scan, security.txt) |
 | Supply chain | `npm audit --audit-level=low` | `found 0 vulnerabilities` |
-| Secrets | `npm run secrets` (history) and `npm run secrets:dir` (working tree) | history: 23 commits, no leaks; working tree: ~544 MB scanned, no leaks |
+| Secrets | `npm run secrets` (history) and `npm run secrets:dir` (working tree) | no leaks in either scan (gitleaks exits 0) |
 | Bundle secrets | `npm run check:bundles && npm run check:secrets-in-bundle` | both PASS — no key value, key shape or server-only variable name in the client bundles or deployment output |
 | Efficiency | not measured in this environment | **not verified in this environment** — no Lighthouse or bundle-size run was made after the final change |
 | Accessibility | `npm run test:e2e` (keyboard-only test, role/name locators) | Keyboard-only completion of search → plan passes; every control is reached by Tab and has an accessible name. No automated axe/WCAG scan was run, so this is **partial** |
 | Problem alignment | `npm test` (impact + regional suites) and the table below | Regional layer, "why this plan fits you", with/without estimate and community checklist covered by unit tests; see [How this addresses the problem](#how-this-addresses-the-problem) |
+| Deployed production | `npm run smoke -- https://breathwise-u27mzs.freebuff.site` | **12 passed, 0 failed** (CSP/HSTS/nosniff/referrer/permissions, health, cross-origin 403, no CORS, service worker never caches `/api/`); live `/api/air` returned 200 with `usAqi: 184, sample: false`; `/.well-known/security.txt` served the placeholder contact over HTTPS |
 | One-command check | `npm run verify` | exit 0: lint → typecheck → tests with coverage → build → client-bundle scan → deployment-output secret gate |
 
 **Not verified in this environment:** real-device accessibility with a screen
