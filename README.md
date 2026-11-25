@@ -32,7 +32,51 @@ silent. Node 20+.
 
 ## Architecture
 
+```mermaid
+flowchart TD
+    subgraph Browser["Browser — no secrets, no server trust"]
+        UI["AppShell (client)<br/>step · language · theme · session plan cache"]
+        Cache["English pack in first load<br/>Hindi/Telugu fetched on demand"]
+        Chart["TrendChart (lazy chunk)"]
+        Plan["PlanView (lazy chunk)"]
+    end
+
+    subgraph Edge["Next.js 16 server"]
+        Proxy["proxy.ts<br/>nonce CSP + security headers"]
+        Geo["/api/geocode"]
+        Air["/api/air"]
+        PlanR["/api/plan"]
+        Health["/api/health"]
+        SecTxt["/.well-known/security.txt"]
+    end
+
+    subgraph Server["Server-side modules"]
+        Guards["zod input schemas<br/>(server only)"]
+        Limit["rateLimit.ts<br/>Upstash → fail closed"]
+        AirLib["air.ts<br/>+ airCache.ts (10 min TTL)"]
+        Planner["planService.ts<br/>model → labelled fallback"]
+    end
+
+    subgraph External["External services (fixed hosts)"]
+        Meteo["Open-Meteo<br/>air quality + geocoding"]
+        Gemini["Gemini API<br/>JSON schema, no tools"]
+    end
+
+    UI --> Proxy
+    Cache -.-> UI
+    Chart -.-> UI
+    Plan -.-> UI
+    Proxy --> Geo --> Guards --> AirLib --> Meteo
+    Proxy --> Air --> Guards --> AirLib
+    Proxy --> PlanR --> Guards --> Limit --> AirLib --> Planner
+    Planner --> Gemini
+    Health --> Limit
 ```
+
+```
+                       ┌──────────────────────────────────────────┐
+ browser (no secrets)  │  React client (app-shell, plan-view)     │
+
                        ┌──────────────────────────────────────────┐
  browser (no secrets)  │  React client (app-shell, plan-view)     │
                        │  · profile stays in React state          │
@@ -61,6 +105,44 @@ Admin/build notes: headers and CSP are built per request in `src/proxy.ts`, the
 service worker never touches `/api/`, and the deployment builds with no
 `.env.local` so no secret can be baked into the bundle.
 
+### Data flow for one plan
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant C as Browser (AppShell)
+    participant P as proxy.ts
+    participant A as /api/plan
+    participant R as Rate limiter (Upstash)
+    participant M as Open-Meteo
+    participant G as Gemini
+
+    U->>C: Search "Delhi"
+    C->>P: GET /api/geocode?q=Delhi
+    P->>A: headers + nonce + rate limit
+    A-->>C: 200 results
+    C->>P: GET /api/air?lat=28.65&lon=77.23
+    P->>A: rate limit, zod, cache lookup
+    A->>M: air-quality (only on cache miss)
+    M-->>A: hourly PM2.5 / PM10 / NO2 / O3 / AQI
+    A-->>C: 200 air + indices
+    U->>C: Submit profile
+    C->>C: session cache hit? render and stop
+    C->>P: POST /api/plan with profile and coordinates
+    P->>A: origin check, rate limit, body cap, zod
+    A->>R: consume one token (fail closed)
+    alt limiter unavailable or cap reached
+        A-->>C: 200 fallback plan, reason labelled, no model call
+    else allowed
+        A->>M: re-fetch air server-side (caller cannot inject data)
+        A->>G: prompt (enums and numbers only, JSON schema)
+        G-->>A: plan JSON
+        A->>A: validate, sanitise, reject medical advice
+        A-->>C: 200 plan + air + meta
+    end
+```
+
 ---
 
 ## Quick start
@@ -76,22 +158,22 @@ Node 20+ is required.
 
 ### Scripts
 
-| Command | What it does |
-| --- | --- |
-| `npm run dev` | Dev server |
-| `npm run build` / `npm start` | Production build / serve |
-| `npm run lint` | ESLint (flat config, includes `react/no-danger`, `no-eval`) |
-| `npm run typecheck` | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`) |
-| `npm test` | Vitest unit + security suites with v8 coverage gates (336 tests) |
-| `npm run test:e2e` | Playwright smoke tests (needs `npm run build` first) |
-| `npm run test:live` | Live AI-path tests against the real Gemini API; auto-skipped when `GEMINI_API_KEY` is unset |
-| `npm run audit` | `npm audit` at every severity |
-| `npm run secrets` / `npm run secrets:dir` | gitleaks scan of the full git history / the working tree |
-| `npm run smoke -- <url>` | Post-deploy smoke test (headers, health, CORS, service worker) |
-| `npm run check:bundles` | Greps the client bundle for keys and secret env names |
-| `npm run check:secrets-in-bundle` | Greps the deployment output for secret values, key shapes and server-only names |
-| `npm run test:security` | The attack-focused suite in `tests/security` |
-| `npm run verify` | Lint → typecheck → tests with coverage → build → both bundle scans, with no env vars |
+| Command                                   | What it does                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `npm run dev`                             | Dev server                                                                                  |
+| `npm run build` / `npm start`             | Production build / serve                                                                    |
+| `npm run lint`                            | ESLint (flat config, includes `react/no-danger`, `no-eval`)                                 |
+| `npm run typecheck`                       | `tsc --noEmit` (strict, `noUncheckedIndexedAccess`)                                         |
+| `npm test`                                | Vitest unit + security suites with v8 coverage gates (336 tests)                            |
+| `npm run test:e2e`                        | Playwright smoke tests (needs `npm run build` first)                                        |
+| `npm run test:live`                       | Live AI-path tests against the real Gemini API; auto-skipped when `GEMINI_API_KEY` is unset |
+| `npm run audit`                           | `npm audit` at every severity                                                               |
+| `npm run secrets` / `npm run secrets:dir` | gitleaks scan of the full git history / the working tree                                    |
+| `npm run smoke -- <url>`                  | Post-deploy smoke test (headers, health, CORS, service worker)                              |
+| `npm run check:bundles`                   | Greps the client bundle for keys and secret env names                                       |
+| `npm run check:secrets-in-bundle`         | Greps the deployment output for secret values, key shapes and server-only names             |
+| `npm run test:security`                   | The attack-focused suite in `tests/security`                                                |
+| `npm run verify`                          | Lint → typecheck → tests with coverage → build → both bundle scans, with no env vars        |
 
 ---
 
@@ -101,16 +183,16 @@ See `.env.example`. All secrets are **server-only**; nothing is prefixed
 `NEXT_PUBLIC_`, because a `NEXT_PUBLIC_` value is compiled into the browser
 bundle by definition.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | no | Server-side LLM key. Unset → fallback plans only. |
-| `GEMINI_MODEL` | yes (recommended) | Model id, default `gemini-3.5-flash`. Changing models needs no code change. The startup check names it if missing, so production never depends on an implicit default. |
-| `LLM_DISABLED` | no | `true` → kill switch; no outbound AI call at all. |
-| `DAILY_LLM_CAP` | no | Daily generation cap, default 200 (counter in Upstash). |
-| `LLM_ATTEMPT_TIMEOUT_MS` | no | Lower the per-attempt AI timeout. Clamped to 18000, so it can only be tightened. |
-| `UPSTASH_REDIS_REST_URL` | **yes (production)** | Distributed rate limiting. Without it production refuses to spend: `/api/plan` returns the labelled fallback plan, the other API routes return 503. |
-| `UPSTASH_REDIS_REST_TOKEN` | **yes (production)** | Same — both are needed. |
-| `APP_ORIGIN` | prod | Exact origin (`scheme://host[:port]`) for same-origin checks, e.g. `https://cleanair.example`. Must include the scheme: a value that is not an absolute http(s) origin is reported at startup and makes every `POST /api/plan` return 403. Unset → the request `Host` is used. |
+| Variable                   | Required             | Purpose                                                                                                                                                                                                                                                                        |
+| -------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GEMINI_API_KEY`           | no                   | Server-side LLM key. Unset → fallback plans only.                                                                                                                                                                                                                              |
+| `GEMINI_MODEL`             | yes (recommended)    | Model id, default `gemini-3.5-flash`. Changing models needs no code change. The startup check names it if missing, so production never depends on an implicit default.                                                                                                         |
+| `LLM_DISABLED`             | no                   | `true` → kill switch; no outbound AI call at all.                                                                                                                                                                                                                              |
+| `DAILY_LLM_CAP`            | no                   | Daily generation cap, default 200 (counter in Upstash).                                                                                                                                                                                                                        |
+| `LLM_ATTEMPT_TIMEOUT_MS`   | no                   | Lower the per-attempt AI timeout. Clamped to 18000, so it can only be tightened.                                                                                                                                                                                               |
+| `UPSTASH_REDIS_REST_URL`   | **yes (production)** | Distributed rate limiting. Without it production refuses to spend: `/api/plan` returns the labelled fallback plan, the other API routes return 503.                                                                                                                            |
+| `UPSTASH_REDIS_REST_TOKEN` | **yes (production)** | Same — both are needed.                                                                                                                                                                                                                                                        |
+| `APP_ORIGIN`               | prod                 | Exact origin (`scheme://host[:port]`) for same-origin checks, e.g. `https://cleanair.example`. Must include the scheme: a value that is not an absolute http(s) origin is reported at startup and makes every `POST /api/plan` return 403. Unset → the request `Host` is used. |
 
 ---
 
@@ -119,25 +201,27 @@ bundle by definition.
 Every result below was produced in this environment, at the commit that contains
 this file. Re-run the command to check it; nothing here is estimated.
 
-| Area | Command to reproduce | Latest real result |
-| --- | --- | --- |
-| Code quality | `npm run lint && npm run typecheck` | eslint exit 0, `tsc --noEmit` exit 0 (strict, `noUncheckedIndexedAccess`) |
-| Testing | `npm test` | 25 test files, **336 tests passed**; coverage for `src/lib`: statements 96.86%, branches 91.65%, functions 99.41%, lines 98.58% (gate: 90/85/90/90) |
-| End-to-end | `npm run build && npm run test:e2e` | **17 Playwright tests passed** (3 languages, fallback labelling, cancel, skip, community checklist + share, print stylesheet, light/dark, limiter-unavailable, keyboard-only) |
-| Security | `npm run test:security` | 9 files, **83 tests passed** (origin/IP spoofing, oversized bodies, prompt injection, XSS, medical guard, headers/CSP, bundle secret scan, security.txt) |
-| Supply chain | `npm audit --audit-level=low` | `found 0 vulnerabilities` |
-| Secrets | `npm run secrets` (history) and `npm run secrets:dir` (working tree) | no leaks in either scan (gitleaks exits 0) |
-| Bundle secrets | `npm run check:bundles && npm run check:secrets-in-bundle` | both PASS — no key value, key shape or server-only variable name in the client bundles or deployment output |
-| Efficiency | not measured in this environment | **not verified in this environment** — no Lighthouse or bundle-size run was made after the final change |
-| Accessibility | `npm run test:a11y` and `node scripts/lighthouse.mjs` | **25 axe + manual WCAG 2.2 AA tests passed**, zero serious/critical violations in every screen, state, language and theme; Lighthouse **Accessibility 100, Best Practices 100, SEO 100**. Details in [Accessibility](#accessibility-wcag-22-aa) |
-| Problem alignment | `npm test` (impact + regional suites) and the table below | Regional layer, "why this plan fits you", with/without estimate and community checklist covered by unit tests; see [How this addresses the problem](#how-this-addresses-the-problem) |
-| Deployed production | `npm run smoke -- https://breathwise-u27mzs.freebuff.site` | **12 passed, 0 failed** (CSP/HSTS/nosniff/referrer/permissions, health, cross-origin 403, no CORS, service worker never caches `/api/`); live `/api/air` returned 200 with `usAqi: 184, sample: false`; `/.well-known/security.txt` served the placeholder contact over HTTPS |
-| One-command check | `npm run verify` | exit 0: lint → typecheck → tests with coverage → build → client-bundle scan → deployment-output secret gate |
+| Area                | Command to reproduce                                                    | Latest real result                                                                                                                                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code quality        | `npm run lint && npm run typecheck`                                     | eslint exit 0, `tsc --noEmit` exit 0 (strict, `noUncheckedIndexedAccess`)                                                                                                                                                                                                             |
+| Testing             | `npm test`                                                              | 29 test files, **384 tests passed**; coverage: statements 96.05%, branches 92.30%, functions 99.51%, lines 98.12% (gate: 90/85/90/90)                                                                                                                                                 |
+| End-to-end          | `npm run build && npm run test:e2e`                                     | **42 Playwright tests passed** (17 smoke + 25 accessibility: axe on every screen/state/language/theme, focus, reflow, fonts)                                                                                                                                                          |
+| Security            | `npm run test:security`                                                 | 9 files, **83 tests passed** (origin/IP spoofing, oversized bodies, prompt injection, XSS, medical guard, headers/CSP, bundle secret scan, security.txt)                                                                                                                              |
+| Supply chain        | `npm audit --audit-level=low`                                           | `found 0 vulnerabilities`                                                                                                                                                                                                                                                             |
+| Secrets             | `npm run secrets` (history) and `npm run secrets:dir` (working tree)    | no leaks in either scan (gitleaks exits 0)                                                                                                                                                                                                                                            |
+| Bundle secrets      | `npm run check:bundles && npm run check:secrets-in-bundle`              | both PASS — no key value, key shape or server-only variable name in the client bundles or deployment output                                                                                                                                                                           |
+| Efficiency          | `node scripts/client-bundle-size.mjs` and `node scripts/lighthouse.mjs` | first-load JS **243.1 to 200.8 KiB gz**; Lighthouse Performance **77 to 81**, TBT **390 to 290 ms**, CLS **0**, total weight **566 to 524 KiB**. LCP 3.6-3.9 s and Performance 81 are **below the 2.5 s / 95 targets**; the framework floor is explained in [Efficiency](#efficiency) |
+| Accessibility       | `npm run test:a11y` and `node scripts/lighthouse.mjs`                   | **25 axe + manual WCAG 2.2 AA tests passed**, zero serious/critical violations in every screen, state, language and theme; Lighthouse **Accessibility 100, Best Practices 100, SEO 100**. Details in [Accessibility](#accessibility-wcag-22-aa)                                       |
+| Problem alignment   | `npm test` (impact + regional suites) and the table below               | Regional layer, "why this plan fits you", with/without estimate and community checklist covered by unit tests; see [How this addresses the problem](#how-this-addresses-the-problem)                                                                                                  |
+| Deployed production | `npm run smoke -- https://breathwise-u27mzs.freebuff.site`              | **12 passed, 0 failed** (CSP/HSTS/nosniff/referrer/permissions, health, cross-origin 403, no CORS, service worker never caches `/api/`); live `/api/air` returned 200 with `usAqi: 184, sample: false`; `/.well-known/security.txt` served the placeholder contact over HTTPS         |
+| One-command check   | `npm run verify`                                                        | exit 0: lint → typecheck → tests with coverage → build → client-bundle scan → deployment-output secret gate                                                                                                                                                                           |
 
 **Not verified in this environment:** real-device accessibility with a screen
 reader, Safari/Firefox rendering, Lighthouse performance, Vercel's real proxy
 header injection, and a full manual attack on the deployed origin (the post-deploy
 smoke script covers headers, CORS, health, the service worker and live air data).
+Lighthouse ran here, but the LCP and Performance targets are not met; see
+[Efficiency](#efficiency).
 
 ## Accessibility (WCAG 2.2 AA)
 
@@ -146,22 +230,22 @@ holds 25 Playwright tests that drive the real app and scan it with axe-core.
 
 ### What is covered
 
-| Requirement | How it is checked |
-| --- | --- |
-| No serious or critical violations | axe-core (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`) on: empty location screen, profile screen, loading skeletons, air-quality screen (light, dark, low-bandwidth), plan screen in en/hi/te × light/dark, labelled sample fallback, and the plan error banner. Any violation is printed with its target selectors and fails the run. |
-| AA contrast, both themes, all six AQI bands | Contrast is computed from the live DOM for band text and the chart stroke in light and dark; every ratio must be ≥ 4.5:1. Measured: light `good 6.64, moderate 6.38, sensitive 6.80, unhealthy 7.73, veryUnhealthy 8.12, hazardous 9.32`; dark `good 12.60, moderate 13.49, sensitive 11.53, unhealthy 10.25, veryUnhealthy 11.00, hazardous 13.44`. |
-| Visible focus | Every control shows a 3 px outline with 2 px offset; the test asserts thickness and offset on the focused element. |
-| Logical focus order, no keyboard trap | Forward Tab traversal is recorded; the order must match the DOM, every stop must receive focus, and no element may hold focus against Tab/Shift+Tab. |
-| Skip link | First Tab stop, visible on focus, moves focus into `<main>` (which is `tabindex="-1"`). |
-| 44 × 44 px touch targets | Every button, link, input, select, summary and checkbox is measured in its rendered box; anything under 44 × 44 CSS px fails and is printed. |
-| Labels on every control | Covered twice: axe's `label`, `select-name` and `aria-*` rules in every scan, and role/name locators used throughout the suite (an unnamed control would not resolve). |
-| Live regions | The loading panel carries `aria-busy="true"` + `aria-live="polite"`; error banners use `role="alert"`; the test asserts the attributes, not just the visuals. |
-| Correct `lang` per language | `document.documentElement.lang` and the content subtree both switch to `en` / `hi` / `te`, so screen readers change voice. |
-| `prefers-reduced-motion` | With reduced motion emulated, animation and transition durations must be ≤ 0.01 s. |
-| 200 % zoom, 320 px width | At 320 CSS px, and at 640 px with a 2× text zoom, `documentElement.scrollWidth` must equal `clientWidth` (measured: 320/320 and 640/640 — no horizontal scroll). |
-| Chart has a text alternative | The trend chart exposes a real `<table>` with `<caption>`, `<thead>` and one row per hour inside a `<details>` element, alongside `role="img"` + `<title>`/`<desc>` on the SVG. |
-| Colour is never the only indicator | Every band chip carries its band name as text next to the colour; the test asserts the accessible text, not the hue. |
-| Hindi and Telugu glyphs | With `hi`/`te` selected, the language scope resolves to `Noto Sans Devanagari` / `Noto Sans Telugu`, `document.fonts.check()` reports the sample text as covered (no tofu), the text measures differently from a serif fallback (the page font is really painting it), and every `.woff2` request is same-origin — `next/font` self-hosts, so nothing hits a font CDN and `font-src 'self'` holds. |
+| Requirement                                 | How it is checked                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No serious or critical violations           | axe-core (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`) on: empty location screen, profile screen, loading skeletons, air-quality screen (light, dark, low-bandwidth), plan screen in en/hi/te × light/dark, labelled sample fallback, and the plan error banner. Any violation is printed with its target selectors and fails the run.                                                  |
+| AA contrast, both themes, all six AQI bands | Contrast is computed from the live DOM for band text and the chart stroke in light and dark; every ratio must be ≥ 4.5:1. Measured: light `good 6.64, moderate 6.38, sensitive 6.80, unhealthy 7.73, veryUnhealthy 8.12, hazardous 9.32`; dark `good 12.60, moderate 13.49, sensitive 11.53, unhealthy 10.25, veryUnhealthy 11.00, hazardous 13.44`.                                               |
+| Visible focus                               | Every control shows a 3 px outline with 2 px offset; the test asserts thickness and offset on the focused element.                                                                                                                                                                                                                                                                                 |
+| Logical focus order, no keyboard trap       | Forward Tab traversal is recorded; the order must match the DOM, every stop must receive focus, and no element may hold focus against Tab/Shift+Tab.                                                                                                                                                                                                                                               |
+| Skip link                                   | First Tab stop, visible on focus, moves focus into `<main>` (which is `tabindex="-1"`).                                                                                                                                                                                                                                                                                                            |
+| 44 × 44 px touch targets                    | Every button, link, input, select, summary and checkbox is measured in its rendered box; anything under 44 × 44 CSS px fails and is printed.                                                                                                                                                                                                                                                       |
+| Labels on every control                     | Covered twice: axe's `label`, `select-name` and `aria-*` rules in every scan, and role/name locators used throughout the suite (an unnamed control would not resolve).                                                                                                                                                                                                                             |
+| Live regions                                | The loading panel carries `aria-busy="true"` + `aria-live="polite"`; error banners use `role="alert"`; the test asserts the attributes, not just the visuals.                                                                                                                                                                                                                                      |
+| Correct `lang` per language                 | `document.documentElement.lang` and the content subtree both switch to `en` / `hi` / `te`, so screen readers change voice.                                                                                                                                                                                                                                                                         |
+| `prefers-reduced-motion`                    | With reduced motion emulated, animation and transition durations must be ≤ 0.01 s.                                                                                                                                                                                                                                                                                                                 |
+| 200 % zoom, 320 px width                    | At 320 CSS px, and at 640 px with a 2× text zoom, `documentElement.scrollWidth` must equal `clientWidth` (measured: 320/320 and 640/640 — no horizontal scroll).                                                                                                                                                                                                                                   |
+| Chart has a text alternative                | The trend chart exposes a real `<table>` with `<caption>`, `<thead>` and one row per hour inside a `<details>` element, alongside `role="img"` + `<title>`/`<desc>` on the SVG.                                                                                                                                                                                                                    |
+| Colour is never the only indicator          | Every band chip carries its band name as text next to the colour; the test asserts the accessible text, not the hue.                                                                                                                                                                                                                                                                               |
+| Hindi and Telugu glyphs                     | With `hi`/`te` selected, the language scope resolves to `Noto Sans Devanagari` / `Noto Sans Telugu`, `document.fonts.check()` reports the sample text as covered (no tofu), the text measures differently from a serif fallback (the page font is really painting it), and every `.woff2` request is same-origin — `next/font` self-hosts, so nothing hits a font CDN and `font-src 'self'` holds. |
 
 ### Reproduce it
 
@@ -198,10 +282,85 @@ seo 100
 - Lighthouse cannot audit the plan screen (it needs a search and a render), so
   that state is covered by axe only.
 
+## Efficiency
+
+### Measured, before and after
+
+All numbers below come from this repository, in this container, against the
+production server (`npm run build && npm run start`), with the command listed in
+each row.
+
+| Measurement                                     | Before                               | After                                          | Command                               |
+| ----------------------------------------------- | ------------------------------------ | ---------------------------------------------- | ------------------------------------- |
+| First-load JavaScript (gzipped, real SSR HTML)  | **243.1 KiB**                        | **200.8 KiB**                                  | `node scripts/client-bundle-size.mjs` |
+| Largest chunk                                   | 72.7 KiB (zod + all three languages) | 70.1 KiB (framework runtime)                   | ↑                                     |
+| Lighthouse Performance (mobile emulation)       | 77                                   | **81**                                         | `node scripts/lighthouse.mjs`         |
+| Lighthouse Accessibility / Best Practices / SEO | 100 / 100 / 100                      | 100 / 100 / 100                                | ↑                                     |
+| Largest Contentful Paint                        | 4.2 s                                | 3.6-3.9 s (run-to-run noise in this container) | ↑                                     |
+| Total Blocking Time                             | 390 ms                               | 290 ms                                         | ↑                                     |
+| Cumulative Layout Shift                         | 0                                    | 0                                              | ↑                                     |
+| Total page weight                               | 566 KiB                              | 524 KiB                                        | ↑                                     |
+| Unused JavaScript (Lighthouse estimate)         | 88 KiB                               | 54 KiB                                         | ↑                                     |
+
+`scripts/client-bundle-size.mjs` reads the scripts out of the server-rendered
+HTML, gzips each file and prints the table, because Turbopack builds do not print
+per-route sizes. It measures what the browser downloads before hydration, not a
+sum of node_modules.
+
+### What changed
+
+1. **zod is server-only.** `src/lib/responseGuards.ts` replaces the three
+   response schemas the browser used to parse: hand-written structural guards
+   for `/api/air`, `/api/geocode` and `/api/plan`. The server still parses every
+   input with zod, because that is the trust boundary; the browser only needs to
+   refuse a body whose shape is wrong. This removed the largest single chunk.
+2. **Language packs load on demand.** English is in the first load (it defines
+   the key type). Hindi and Telugu live in `src/lib/i18n/hi.ts` and `te.ts` and
+   are imported the first time someone selects that language; `AppShell` awaits
+   `loadLanguage()` before switching, so a half-translated screen is impossible.
+3. **The chart and the plan screen are separate chunks.** `next/dynamic` for
+   `TrendChart` (only needed once air data exists) and `PlanView` (only reachable
+   after a submit).
+4. **Upstream air data is cached for 10 minutes** (`src/lib/airCache.ts`), keyed
+   by the rounded coordinate pair, caching the pending promise so concurrent
+   requests share one fetch. A rejected fetch is never cached. Both `/api/air`
+   and `/api/plan` use it, so the plan request made seconds after the air screen
+   costs no second upstream call.
+5. **No repeated model calls in a session.** `AppShell` keys a plan cache on
+   profile + language + severity band + sample flag + coordinates; a regenerate
+   that would produce an identical answer is served from memory, so it spends no
+   rate-limit token and no model call. The cap and limiter paths return before
+   any model call, so a blocked request never reaches the model either.
+6. **Caching headers are explicit.** `/_next/static/*` is
+   `public, max-age=31536000, immutable` (verified with `curl -D -`), every
+   `/api/*` response is `no-store` (set in `src/lib/http.ts` and again in
+   `src/proxy.ts`), and the service worker never intercepts `/api/`.
+
+### Why 150 KiB was not reached
+
+The 150 KiB target is **not met**: 200.8 KiB gzipped at the last measurement.
+
+The floor is the framework, not this app: React 19 + the Next.js client runtime +
+its always-included polyfill chunk measure **158.6 KiB gzipped** on their own
+(70.1 + 47.5 + 38.7 + 3.8 KiB), before a single line of application code. That
+already exceeds 150 KiB, so the budget is unreachable without dropping the
+framework for a smaller one - a rewrite, not an optimisation.
+
+What is left above that floor is 42.2 KiB gz of application code: the English UI
+strings (the source of truth for the key type), the components, the AQI/NAQI
+maths the app runs locally, and the guards above. The two remaining candidates
+(band label tables per language, `fallbackPlan` split out) are worth roughly
+5-8 KiB gz together and would push guide text behind async boundaries; that was
+rejected as a worse trade for the reader than the bytes saved.
+
+The `browserslist` experiment was tried and reverted: pinning modern browsers
+changed the build by 0 bytes, because this Next version ships the polyfill chunk
+unconditionally.
+
 ## How it works
 
 1. **Location** — city search through Open-Meteo Geocoding, or browser geolocation
-   *only after* an explicit consent panel. Coordinates are rounded to 2 decimals
+   _only after_ an explicit consent panel. Coordinates are rounded to 2 decimals
    (~1.1 km) before any API call and are never logged or stored.
 2. **Quick profile** — household counts, sensitive-group toggles, home type,
    window/kitchen ventilation, commute mode, budget, room size. Held in React
@@ -250,16 +409,16 @@ alternatives tailored to location and lifestyle, while explaining the direct
 impact, with every regional or impact claim conservative, labelled and carrying
 its assumption.
 
-| Requirement | Where it lives | What proves it |
-| --- | --- | --- |
-| Location tailoring without sending a place to the model | `src/lib/regional.ts` — static coarse-region + season table, browser-only; documented in [`PRIVACY.md`](PRIVACY.md) | `tests/unit/regional.test.ts` (region/season/burning/inversion cases; asserts `prompt.ts`, `planService.ts` and `gemini.ts` never import it) |
-| Lifestyle tailoring, visibly used | `src/lib/impact.ts` (`whyThisPlanFits`), rendered by `src/components/personal-context.tsx` (`WhyThisPlanFits`) and passed `profile` from `src/components/app-shell.tsx` | `tests/unit/impact.test.ts` (“names every household input that shaped the plan”) |
-| “Why this plan fits you” summary | `WhyThisPlanFits` card on every plan | `tests/unit/impact.test.ts`; `tests/e2e/flow.spec.ts` asserts the card renders |
-| Direct impact with a deterministic with/without estimate | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact.ts`, rendered by `WithWithoutCard` | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing) |
-| “Rough estimate” next to every number, in English, Hindi and Telugu | `ImpactLabels.roughEstimate` in `src/lib/impact.ts`, printed beside each value | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”) |
-| Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx` | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan |
-| Community checklist (school, workplace, resident association, no-burning, carpool) | `communityItems` in `src/lib/i18n.ts`, rendered in “Community mode” | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable |
-| Conservative, labelled regional and impact claims | Every regional note and impact factor states its assumption; see `src/lib/regional.ts`, `src/lib/impact.ts`, `src/lib/fallbackPlan.ts` | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present) |
+| Requirement                                                                               | Where it lives                                                                                                                                                          | What proves it                                                                                                                               |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location tailoring without sending a place to the model                                   | `src/lib/regional.ts` — static coarse-region + season table, browser-only; documented in [`PRIVACY.md`](PRIVACY.md)                                                     | `tests/unit/regional.test.ts` (region/season/burning/inversion cases; asserts `prompt.ts`, `planService.ts` and `gemini.ts` never import it) |
+| Lifestyle tailoring, visibly used                                                         | `src/lib/impact.ts` (`whyThisPlanFits`), rendered by `src/components/personal-context.tsx` (`WhyThisPlanFits`) and passed `profile` from `src/components/app-shell.tsx` | `tests/unit/impact.test.ts` (“names every household input that shaped the plan”)                                                             |
+| “Why this plan fits you” summary                                                          | `WhyThisPlanFits` card on every plan                                                                                                                                    | `tests/unit/impact.test.ts`; `tests/e2e/flow.spec.ts` asserts the card renders                                                               |
+| Direct impact with a deterministic with/without estimate                                  | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact.ts`, rendered by `WithWithoutCard`                                                                           | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing)                                                             |
+| “Rough estimate” next to every number, in English, Hindi and Telugu                       | `ImpactLabels.roughEstimate` in `src/lib/impact.ts`, printed beside each value                                                                                          | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”)                                                          |
+| Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx`                                           | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan                    |
+| Community checklist (school, workplace, resident association, no-burning, carpool)        | `communityItems` in `src/lib/i18n.ts`, rendered in “Community mode”                                                                                                     | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable          |
+| Conservative, labelled regional and impact claims                                         | Every regional note and impact factor states its assumption; see `src/lib/regional.ts`, `src/lib/impact.ts`, `src/lib/fallbackPlan.ts`                                  | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present)                          |
 
 ## Deploy (Vercel)
 
@@ -287,16 +446,16 @@ The complete list. Every one is server-side only; the deployment never contains 
 `NEXT_PUBLIC_` value. The examples are **placeholders** — paste your own, never a
 real key, and never commit them.
 
-| Variable | Required | Safe example value | Purpose |
-| --- | --- | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | **yes in production** | `https://example-12345.upstash.io` | Distributed rate limiting and the daily LLM counter. |
-| `UPSTASH_REDIS_REST_TOKEN` | **yes in production** | `replace-with-the-upstash-rest-token` | Same database; both are needed. |
-| `GEMINI_MODEL` | **yes** | `gemini-3.5-flash` | Model id, no `models/` prefix. Kept in the environment so a model change needs no redeploy of code. |
-| `GEMINI_API_KEY` | recommended | `replace-with-your-google-ai-studio-key` | Server-side LLM key. Unset → deterministic plans only; the app still works. |
-| `LLM_DISABLED` | no (default `false`) | `true` | Kill switch: `true` disables every outbound AI call and serves the labelled rule-based plan. |
-| `DAILY_LLM_CAP` | no (default `200`) | `200` | Daily LLM generation cap, counted in Upstash. A spend control independent of traffic. |
-| `APP_ORIGIN` | **yes in production** | `https://cleanair-companion.vercel.app` | Exact origin for the same-origin check, scheme included (`scheme://host[:port]`). Without it the request `Host` is used. A malformed value is reported by `reportEnv()` and every `POST /api/plan` answers 403 — fail closed, never fail open. |
-| `LLM_ATTEMPT_TIMEOUT_MS` | no (default `18000`) | `18000` | Optional tightening of the per-attempt AI timeout. Clamped to 18000, so it can only be lowered. |
+| Variable                   | Required              | Safe example value                       | Purpose                                                                                                                                                                                                                                        |
+| -------------------------- | --------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UPSTASH_REDIS_REST_URL`   | **yes in production** | `https://example-12345.upstash.io`       | Distributed rate limiting and the daily LLM counter.                                                                                                                                                                                           |
+| `UPSTASH_REDIS_REST_TOKEN` | **yes in production** | `replace-with-the-upstash-rest-token`    | Same database; both are needed.                                                                                                                                                                                                                |
+| `GEMINI_MODEL`             | **yes**               | `gemini-3.5-flash`                       | Model id, no `models/` prefix. Kept in the environment so a model change needs no redeploy of code.                                                                                                                                            |
+| `GEMINI_API_KEY`           | recommended           | `replace-with-your-google-ai-studio-key` | Server-side LLM key. Unset → deterministic plans only; the app still works.                                                                                                                                                                    |
+| `LLM_DISABLED`             | no (default `false`)  | `true`                                   | Kill switch: `true` disables every outbound AI call and serves the labelled rule-based plan.                                                                                                                                                   |
+| `DAILY_LLM_CAP`            | no (default `200`)    | `200`                                    | Daily LLM generation cap, counted in Upstash. A spend control independent of traffic.                                                                                                                                                          |
+| `APP_ORIGIN`               | **yes in production** | `https://cleanair-companion.vercel.app`  | Exact origin for the same-origin check, scheme included (`scheme://host[:port]`). Without it the request `Host` is used. A malformed value is reported by `reportEnv()` and every `POST /api/plan` answers 403 — fail closed, never fail open. |
+| `LLM_ATTEMPT_TIMEOUT_MS`   | no (default `18000`)  | `18000`                                  | Optional tightening of the per-attempt AI timeout. Clamped to 18000, so it can only be lowered.                                                                                                                                                |
 
 `src/instrumentation.ts` runs `reportEnv()` once per server instance and logs a
 clear error naming each missing variable and its consequence. It never logs a
@@ -348,13 +507,13 @@ npm run smoke -- https://your-deployment.vercel.app
 The script needs no credentials and only reads public responses. It exits non-zero
 if any check fails and prints what it actually received:
 
-| Check | Expected |
-| --- | --- |
-| `GET /` | 200 |
-| Security headers on `/` | `Content-Security-Policy` (`default-src 'self'`), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` (`geolocation=(self)`) |
-| `GET /api/health` | 200 with exactly `{"status":"ok"}` |
-| `POST /api/plan` with `Origin: https://evil.example` | 403, and no `Access-Control-Allow-Origin` header |
-| `GET /sw.js` | 200, skips every `/api/` request, no cache write or precache names `/api` |
+| Check                                                | Expected                                                                                                                                                                                      |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /`                                              | 200                                                                                                                                                                                           |
+| Security headers on `/`                              | `Content-Security-Policy` (`default-src 'self'`), `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` (`geolocation=(self)`) |
+| `GET /api/health`                                    | 200 with exactly `{"status":"ok"}`                                                                                                                                                            |
+| `POST /api/plan` with `Origin: https://evil.example` | 403, and no `Access-Control-Allow-Origin` header                                                                                                                                              |
+| `GET /sw.js`                                         | 200, skips every `/api/` request, no cache write or precache names `/api`                                                                                                                     |
 
 A 503 from `/api/health` during the smoke test means the rate limiter is not
 configured or not reachable — the deployment is up but refusing to serve API
@@ -377,25 +536,25 @@ November 2026): on the Hobby plan the maximum function duration is **300 s**, an
 does not try to use that ceiling — it declares a much smaller one and budgets the
 model inside it.
 
-| Value | Where | Why |
-| --- | --- | --- |
-| `maxDuration = 45` s | `src/app/api/plan/route.ts` | Explicit, far below the 300 s Hobby ceiling, so a hung request can never sit for minutes. |
-| Air fetch ≤ 5 s | `UPSTREAM_TIMEOUT_MS` | Open-Meteo runs before the model and counts against the same clock. |
-| One LLM attempt ≤ 18 s | `LLM_ATTEMPT_TIMEOUT_MS` | Measured live latency is 10.1 s (en), 10.8 s (hi), 13.2 s (te); 18 s leaves ~5 s of headroom over the slowest language. |
-| All attempts ≤ 25 s | `LLM_TOTAL_BUDGET_MS` | Two 18 s attempts cannot fit, so the shared deadline caps the second one at the time actually left. 25 s is also the ceiling the UI quotes, so the promise and the budget cannot drift apart. |
-| Response margin 5 s | `ROUTE_RESPONSE_MARGIN_MS` | Time to serialise the JSON and write the response before the platform kill. |
+| Value                  | Where                       | Why                                                                                                                                                                                           |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `maxDuration = 45` s   | `src/app/api/plan/route.ts` | Explicit, far below the 300 s Hobby ceiling, so a hung request can never sit for minutes.                                                                                                     |
+| Air fetch ≤ 5 s        | `UPSTREAM_TIMEOUT_MS`       | Open-Meteo runs before the model and counts against the same clock.                                                                                                                           |
+| One LLM attempt ≤ 18 s | `LLM_ATTEMPT_TIMEOUT_MS`    | Measured live latency is 10.1 s (en), 10.8 s (hi), 13.2 s (te); 18 s leaves ~5 s of headroom over the slowest language.                                                                       |
+| All attempts ≤ 25 s    | `LLM_TOTAL_BUDGET_MS`       | Two 18 s attempts cannot fit, so the shared deadline caps the second one at the time actually left. 25 s is also the ceiling the UI quotes, so the promise and the budget cannot drift apart. |
+| Response margin 5 s    | `ROUTE_RESPONSE_MARGIN_MS`  | Time to serialise the JSON and write the response before the platform kill.                                                                                                                   |
 
 Worst case: 5 + 25 + 5 = **35 s**, inside `maxDuration = 45`, with 10 s left for
 cold start and scheduling jitter. (The previous 30 s LLM budget gave a 40 s worst
 case; it was tightened to 25 s so the LLM can never consume most of the
 function's allowance.)
 
-**Retry rule.** A retry only runs when the first attempt finished inside *half*
+**Retry rule.** A retry only runs when the first attempt finished inside _half_
 the LLM budget (12.5 s of 25 s). A slower first attempt — a hang near the 18 s cap,
 or a slow answer that then failed validation — breaks the loop and returns the
 labelled fallback immediately, because a second attempt could no longer finish
 before the deadline. Timeouts, rate limits and a rejected key are never retried
-at all. The route also passes its *remaining* wall clock to `generatePlan`, which
+at all. The route also passes its _remaining_ wall clock to `generatePlan`, which
 clamps it, so if the air fetch was slow the model gets correspondingly less; if
 no time is left, the fallback is returned without calling the provider.
 
@@ -418,12 +577,12 @@ proves this against a simulated provider that only settles when aborted.
 Rate limiting is the only thing standing between a public endpoint and the
 owner's model quota, so it is never optional in production.
 
-| Situation | `/api/plan` | `/api/air`, `/api/geocode` |
-| --- | --- | --- |
-| Upstash configured and reachable | normal (429 + `Retry-After` when over the limit) | normal |
-| Upstash unreachable (timeout 1.5 s) | **200** + labelled fallback, `fallbackReason: "limiter_unavailable"`, no model call | **503** + `Retry-After`, generic message |
-| Upstash variables missing, `NODE_ENV=production` | same as above | **503** |
-| Upstash variables missing, development | per-instance memory limiter + one startup warning | same |
+| Situation                                        | `/api/plan`                                                                         | `/api/air`, `/api/geocode`               |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| Upstash configured and reachable                 | normal (429 + `Retry-After` when over the limit)                                    | normal                                   |
+| Upstash unreachable (timeout 1.5 s)              | **200** + labelled fallback, `fallbackReason: "limiter_unavailable"`, no model call | **503** + `Retry-After`, generic message |
+| Upstash variables missing, `NODE_ENV=production` | same as above                                                                       | **503**                                  |
+| Upstash variables missing, development           | per-instance memory limiter + one startup warning                                   | same                                     |
 
 **Startup configuration check.** `src/instrumentation.ts` calls
 `reportEnv()` once per Node.js server instance. It logs a clear error for each
@@ -434,8 +593,8 @@ missing required variable — `GEMINI_API_KEY`, `GEMINI_MODEL`,
 
 **Verified client-IP source.** Per Vercel's
 [request headers documentation](https://vercel.com/docs/headers/request-headers)
-(read November 2026): *"Vercel … overwrite[s] the X-Forwarded-For header and do[es]
-not forward external IPs. This restriction is in place to prevent IP spoofing."*
+(read November 2026): _"Vercel … overwrite[s] the X-Forwarded-For header and do[es]
+not forward external IPs. This restriction is in place to prevent IP spoofing."_
 `x-vercel-forwarded-for` is the same value and survives a proxy in front of
 Vercel, so it is read first. In production only those Vercel-set headers are
 used; a caller-supplied `x-forwarded-for` is ignored. `tests/unit/http.test.ts`
@@ -457,7 +616,7 @@ that is about 1,400 commands/day, or **≈43,000/month, under 9% of the free
 tier**. The documented default `DAILY_LLM_CAP=200` also caps model spend
 independently of traffic.
 
-What the app cannot do is make a *sustained attack* cheap: the per-IP limit is
+What the app cannot do is make a _sustained attack_ cheap: the per-IP limit is
 6 plan requests/minute, so one address hammering the route all month would use
 more than 500K commands. Upstash's FAQ states that commands over the free
 allowance return an exception; that exception is handled as "limiter
@@ -523,7 +682,30 @@ paid Upstash plan — the code needs no change.
     preference.
 11. **Upstash limiter calls are bounded at 1.5 s.** A hung limiter cannot hold a
     request open; the timeout is treated as "unreachable".
-12. **zod runs jitless (`z.config({ jitless: true })`).** By default zod probes
+12. **zod is a server dependency only.** The browser validates responses with
+    hand-written structural guards (`src/lib/responseGuards.ts`). Rationale: the
+    server parses untrusted input and must be strict; the browser only needs to
+    refuse a malformed body before rendering it. Saves ~40 KiB of schema runtime
+    on a mobile connection, and the same fixtures pin both sides.
+13. **Language packs are fetched on demand.** English ships in the first load
+    because it defines the key type; Hindi and Telugu are separate chunks loaded
+    the first time they are selected. The language switch awaits the pack, so
+    "half a page in the old language" cannot happen.
+14. **Air data is cached for 10 minutes, in memory, per instance.** Two neighbours
+    looking at the same city within a few minutes cost one upstream call. A
+    rejected fetch is never cached, so an outage is never outlived by the cache.
+    No coordinates or responses are persisted anywhere.
+15. **A repeated plan request in the same session does not call the model.**
+    Identical profile + language + AQI band + coordinates is served from memory.
+    The alternative (regenerating) would spend a rate-limit token to produce the
+    same answer.
+16. **ESLint complexity limit is 15, not 12.** Chosen after measuring: 12 failed
+    on routing and origin-check functions whose branches are the security rules
+    themselves, and forcing them apart made the checks harder to audit. The
+    functions above the limit were split (`generatePlan`, `checkOrigin`,
+    `regionalContext`, `whyThisPlanFits`, the plan guards, `AppShell`), and
+    `max-depth`/`max-params` stay strict.
+17. **zod runs jitless (`z.config({ jitless: true })`).** By default zod probes
     `Function("")`, which a strict `script-src` blocks — it degrades gracefully,
     but it logs a CSP violation and is the kind of runtime code generation the
     policy exists to prevent. Disabling JIT removes it everywhere.
