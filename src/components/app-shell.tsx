@@ -367,6 +367,10 @@ export function AppShell() {
                 lang={lang}
                 onBack={() => setStep(2)}
                 onRegenerate={() => void handleSubmitPlan()}
+                profile={profile}
+                pm25={airData?.air.current.pm25 ?? null}
+                lat={location?.lat ?? null}
+                lon={location?.lon ?? null}
               />
             </div>
           ) : null}

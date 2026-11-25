@@ -143,15 +143,18 @@ const en = {
   copied: 'Copied',
   print: 'Print checklist',
 
+  whyFits: 'Why this plan fits you',
+
   communityTitle: 'Community mode',
   communityHelp:
     'A privacy-safe neighbourhood checklist. It contains no names, no addresses and no location data.',
   communityItems: [
-    'Check on neighbours who are elderly, pregnant or have small children.',
-    'Agree one shared school-run or carpool for the worst hours of the day.',
-    'Report open waste or leaf burning to the local municipal helpline.',
-    'Share a clean-air room (one filtered room) with nearby family during peaks.',
-    'Ask local shops to switch from diesel generators to grid power where possible.',
+    'School: agree that children stay indoors for breaks on the worst days, and share one school-run for the dirtiest hours.',
+    'Workplace: ask for indoor work or a shifted start on severe days, and keep the commute shared rather than solo.',
+    'Resident association: adopt a no-burning rule for waste and leaves, and agree one filtered clean-air room for the neighbourhood.',
+    'Never burn waste, leaves or crop residue, and report open burning to the municipal helpline.',
+    'Carpool or take the bus for the school run and the office run; the shared trip is the one that cuts emissions.',
+    'Check on elderly, pregnant and small-child households, and share a spare mask with anyone who needs one.',
   ] as string[],
 
   privacyTitle: 'Privacy',
@@ -313,15 +316,18 @@ const hi: Record<UiKey, string | string[]> = {
   copied: 'कॉपी हो गया',
   print: 'चेकलिस्ट प्रिंट करें',
 
+  whyFits: 'यह योजना आपके लिए क्यों सही है',
+
   communityTitle: 'समुदाय मोड',
   communityHelp:
     'गोपनीयता-सुरक्षित मोहल्ला चेकलिस्ट। इसमें कोई नाम, पता या स्थान डेटा नहीं है।',
   communityItems: [
-    'बुज़ुर्ग, गर्भवती पड़ोसियों और छोटे बच्चों वाले परिवारों का हाल पूछें।',
-    'दिन के सबसे प्रदूषित घंटों के लिए एक साझा स्कूल-रन या कारपूल तय करें।',
-    'खुले कचरे या पत्ते जलाने की शिकायत नगर निगम हेल्पलाइन पर करें।',
-    'प्रदूषण चरम पर हो तो पास के परिवार के साथ एक फ़िल्टर वाला कमरा साझा करें।',
-    'स्थानीय दुकानों से डीज़ल जनरेटर की जगह बिजली उपयोग करने का अनुरोध करें।',
+    'स्कूल: सबसे खराब दिनों में बच्चे ब्रेक में अंदर रहें, यह स्कूल से तय करें और सबसे प्रदूषित घंटों के लिए एक साझा स्कूल-रन रखें।',
+    'कार्यस्थल: गंभीर दिनों में अंदर का काम या बदला हुआ समय माँगें, और यात्रा अकेले के बजाय साझा रखें।',
+    'रेज़िडेंट एसोसिएशन: कचरा और पत्ते न जलाने का नियम बनाएँ, और मोहल्ले के लिए एक फ़िल्टर वाला साफ़-हवा कमरा तय करें।',
+    'कचरा, पत्ते या फ़सल अवशेष कभी न जलाएँ, और खुली जलन की शिकायत नगर निगम हेल्पलाइन पर करें।',
+    'स्कूल और दफ़्तर के लिए कारपूल या बस चुनें; साझा यात्रा ही उत्सर्जन घटाती है।',
+    'बुज़ुर्ग, गर्भवती और छोटे बच्चों वाले घरों का हाल पूछें, और ज़रूरत वाले को अतिरिक्त मास्क दें।',
   ] as string[],
 
   privacyTitle: 'गोपनीयता',
@@ -481,15 +487,18 @@ const te: Record<UiKey, string | string[]> = {
   copied: 'కాపీ అయింది',
   print: 'చెక్‌లిస్ట్ ప్రింట్ చేయి',
 
+  whyFits: 'ఈ ప్రణాళిక మీకు ఎందుకు సరిపోతుంది',
+
   communityTitle: 'సమాజ మోడ్',
   communityHelp:
     'గోప్యతకు సురక్షితమైన వాడ చెక్‌లిస్ట్. ఇందులో పేర్లు, చిరునామాలు, ప్రాంత డేటా ఉండవు.',
   communityItems: [
-    'వృద్ధులు, గర్భవతులు, చిన్న పిల్లలు ఉన్న పొరుగువారిని పలకరించండి.',
-    'రోజులో అత్యంత కలుషిత గంటలకు ఒక భాగస్వామ్య స్కూల్-రన్ లేదా కార్‌పూల్ ఏర్పాటు చేయండి.',
-    'బహిరంగ చెత్త లేదా ఆకులు కాల్చడాన్ని మునిసిపల్ హెల్ప్‌లైన్‌కు తెలియజేయండి.',
-    'కాలుష్యం ఎక్కువగా ఉన్నప్పుడు దగ్గరి కుటుంబంతో ఒక ఫిల్టర్ గదిని పంచుకోండి.',
-    'స్థానిక దుకాణాలను డీజిల్ జనరేటర్లకు బదులు గ్రిడ్ విద్యుత్ వాడమని కోరండి.',
+    'పాఠశాల: అత్యంత దారుణమైన రోజుల్లో విరామాలకు పిల్లలు లోపలే ఉండేలా ఏర్పాటు చేయండి, అత్యంత కలుషిత గంటలకు ఒక భాగస్వామ్య స్కూల్-రన్ ఉంచండి.',
+    'కార్యాలయం: తీవ్రమైన రోజుల్లో లోపలి పని లేదా మార్చిన ప్రారంభ సమయం అడగండి, ప్రయాణాన్ని ఒంటరిగా కాక భాగస్వామ్యంగా ఉంచండి.',
+    'వాడ అసోసియేషన్: చెత్త, ఆకులు కాల్చకూడదని నియమం పెట్టండి, వాడ కోసం ఒక ఫిల్టర్ శుభ్ర-గాలి గదిని ఏర్పాటు చేయండి.',
+    'చెత్త, ఆకులు, పంట అవశేషాలు ఎప్పుడూ కాల్చకండి; బహిరంగ దహనాన్ని మునిసిపల్ హెల్ప్‌లైన్‌కు తెలియజేయండి.',
+    'స్కూల్, ఆఫీసు ప్రయాణాలకు కార్‌పూల్ లేదా బస్సు వాడండి; భాగస్వామ్య ప్రయాణమే ఉద్గారాలను తగ్గిస్తుంది.',
+    'వృద్ధులు, గర్భవతులు, చిన్న పిల్లలు ఉన్న ఇళ్లను పలకరించండి, అవసరమైన వారికి అదనపు మాస్క్ ఇవ్వండి.',
   ] as string[],
 
   privacyTitle: 'గోప్యత',

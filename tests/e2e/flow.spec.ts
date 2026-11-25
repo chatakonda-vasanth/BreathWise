@@ -126,6 +126,14 @@ test('the profile step can be skipped', async ({ page }) => {
   await chooseDelhi(page);
   await page.getByRole('button', { name: /^Skip$/ }).click();
   await expect(page.getByText(/Direct impact/i).first()).toBeVisible({ timeout: 20_000 });
+
+  // The plan visibly explains what shaped it, shows the with/without estimate
+  // and the local seasonal context.
+  await expect(page.getByTestId('why-fits')).toBeVisible();
+  await expect(page.getByTestId('why-fits')).toContainText(/Household size/);
+  await expect(page.getByTestId('with-without')).toBeVisible();
+  await expect(page.getByTestId('with-without')).toContainText(/Rough estimate/);
+  await expect(page.getByTestId('local-context')).toBeVisible();
 });
 
 test('the community checklist is interactive and the share link carries the plan', async ({

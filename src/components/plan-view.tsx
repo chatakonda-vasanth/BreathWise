@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { fallbackReasonLabel, SEVERITY_LABELS, t, tList } from '@/lib/i18n';
+import type { Profile } from '@/lib/schemas';
 import type { Language, Plan, Recommendation } from '@/lib/types';
+import { LocalContextCard, WhyThisPlanFits, WithWithoutCard } from './personal-context';
 import { Banner, BandChip, SectionHeading } from './ui';
 
 /** Plain-text rendering used for sharing, clipboard and speech. No HTML, ever. */
@@ -107,9 +109,25 @@ interface PlanViewProps {
   lang: Language;
   onBack: () => void;
   onRegenerate: () => void;
+  /** Household inputs, so the plan can explain what shaped it. */
+  profile?: Partial<Profile> | null;
+  /** Outdoor PM2.5 for the with/without estimate; null when unavailable. */
+  pm25?: number | null;
+  /** Rounded coordinates, used only for the local seasonal context. */
+  lat?: number | null;
+  lon?: number | null;
 }
 
-export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
+export function PlanView({
+  plan,
+  lang,
+  onBack,
+  onRegenerate,
+  profile,
+  pm25,
+  lat,
+  lon,
+}: PlanViewProps) {
   const [copied, setCopied] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [speaking, setSpeaking] = useState(false);
@@ -266,6 +284,10 @@ export function PlanView({ plan, lang, onBack, onRegenerate }: PlanViewProps) {
           <p className="hint mt-1">{t(lang, 'cigaretteApprox')}</p>
         </div>
       </div>
+
+      <WhyThisPlanFits profile={profile} lang={lang} />
+      <WithWithoutCard pm25={pm25} profile={profile} lang={lang} />
+      <LocalContextCard lat={lat} lon={lon} lang={lang} />
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         {[
