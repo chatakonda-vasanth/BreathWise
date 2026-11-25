@@ -333,8 +333,8 @@ export function PlanView({
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
             {tList(lang, 'communityItems').map((item) => (
               <li key={item}>
-                <label className="flex items-start gap-2">
-                  <input type="checkbox" className="mt-1 h-4 w-4" aria-label={item} />
+                <label className="check-row">
+                  <input type="checkbox" aria-label={item} />
                   <span>{item}</span>
                 </label>
               </li>

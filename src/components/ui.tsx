@@ -5,10 +5,13 @@ import type { SeverityBand } from '@/lib/types';
 export function Banner({
   tone,
   title,
+  live,
   children,
 }: {
   tone: 'danger' | 'warn' | 'info';
   title?: string;
+  /** Announce the banner to screen readers when it appears. */
+  live?: 'polite' | 'assertive';
   children: React.ReactNode;
 }) {
   const className =
@@ -17,9 +20,9 @@ export function Banner({
       : tone === 'warn'
         ? 'banner banner-warn'
         : 'banner banner-info';
-  const role = tone === 'danger' ? 'alert' : undefined;
+  const role = tone === 'danger' || live === 'assertive' ? 'alert' : live ? 'status' : undefined;
   return (
-    <div className={className} role={role}>
+    <div className={className} role={role} aria-live={role ? (role === 'alert' ? 'assertive' : 'polite') : undefined}>
       {title ? <p className="font-bold">{title}</p> : null}
       <div className="text-sm">{children}</div>
     </div>

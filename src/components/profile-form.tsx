@@ -78,29 +78,26 @@ export function ProfileForm({
       <fieldset className="mt-4">
         <legend className="field-label">{t(lang, 'sensitive')}</legend>
         <div className="flex flex-col gap-2">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="check-row text-sm">
             <input
               type="checkbox"
-              className="h-5 w-5"
               checked={value.pregnant}
               onChange={(event) => onChange({ pregnant: event.target.checked })}
             />
             {t(lang, 'pregnant')}
           </label>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="check-row text-sm">
             <input
               type="checkbox"
-              className="h-5 w-5"
               checked={value.sensitiveGroup}
               onChange={(event) => onChange({ sensitiveGroup: event.target.checked })}
             />
             {t(lang, 'sensitive')}
           </label>
           <p className="hint">{t(lang, 'sensitiveHelp')}</p>
-          <label className="flex items-center gap-2 text-sm">
+          <label className="check-row text-sm">
             <input
               type="checkbox"
-              className="h-5 w-5"
               checked={value.symptoms}
               onChange={(event) => onChange({ symptoms: event.target.checked })}
             />

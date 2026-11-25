@@ -3,7 +3,9 @@
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-hindi: var(--font-devanagari), var(--font-inter), ui-sans-serif, sans-serif;
-  --font-telugu: var(--font-telugu), var(--font-inter), ui-sans-serif, sans-serif;
+  /* Different name from the next/font variable (--font-telugu): a variable
+     cannot reference itself, which silently dropped the fallback chain. */
+  --font-telugu-stack: var(--font-telugu), var(--font-inter), ui-sans-serif, sans-serif;
 }
 
 /* ---------------------------------------------------------------------------
@@ -82,6 +84,11 @@ html {
   background: var(--bg);
 }
 
+/* Disclosure summaries are controls too: keep the hit area at 44 px. */
+summary {
+  padding-block: 0.8rem;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -106,7 +113,7 @@ body {
 }
 
 [lang='te'] {
-  font-family: var(--font-telugu);
+  font-family: var(--font-telugu-stack);
 }
 
 @layer components {
@@ -184,6 +191,23 @@ body {
     font-size: 0.85rem;
   }
 
+  /* A checkbox row is the whole touch target: 44 px tall, not the 16 px box. */
+  .check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.5rem 0;
+    cursor: pointer;
+  }
+
+  .check-row input[type='checkbox'] {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.1rem;
+    flex: none;
+  }
+
   .pill {
     display: inline-flex;
     align-items: center;
@@ -244,23 +268,84 @@ body {
 /* Band colours are applied through a data attribute so no inline styles are
    needed anywhere (the CSP forbids them in production). Each band also ships a
    text label and a glyph, so colour is never the only signal. */
+/* `--band-solid` is the chip background (always paired with white text).
+   `--band-ink` is band-coloured text and chart strokes, and it is re-pointed at
+   a lighter tint in the dark theme so it still clears 4.5:1 on a dark surface. */
 [data-band='good'] {
   --band-solid: #166534;
+  --band-ink: #166534;
 }
 [data-band='moderate'] {
   --band-solid: #854d0e;
+  --band-ink: #854d0e;
 }
 [data-band='sensitive'] {
   --band-solid: #9a3412;
+  --band-ink: #9a3412;
 }
 [data-band='unhealthy'] {
   --band-solid: #991b1b;
+  --band-ink: #991b1b;
 }
 [data-band='veryUnhealthy'] {
   --band-solid: #6b21a8;
+  --band-ink: #6b21a8;
 }
 [data-band='hazardous'] {
   --band-solid: #7f1d1d;
+  --band-ink: #7f1d1d;
+}
+
+:root[data-theme='dark'] [data-band='good'],
+:root[data-theme='dark'][data-band='good'] {
+  --band-ink: #6ee7a0;
+}
+:root[data-theme='dark'] [data-band='moderate'],
+:root[data-theme='dark'][data-band='moderate'] {
+  --band-ink: #fcd34d;
+}
+:root[data-theme='dark'] [data-band='sensitive'],
+:root[data-theme='dark'][data-band='sensitive'] {
+  --band-ink: #fdba74;
+}
+:root[data-theme='dark'] [data-band='unhealthy'],
+:root[data-theme='dark'][data-band='unhealthy'] {
+  --band-ink: #fca5a5;
+}
+:root[data-theme='dark'] [data-band='veryUnhealthy'],
+:root[data-theme='dark'][data-band='veryUnhealthy'] {
+  --band-ink: #d8b4fe;
+}
+:root[data-theme='dark'] [data-band='hazardous'],
+:root[data-theme='dark'][data-band='hazardous'] {
+  --band-ink: #fecaca;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) [data-band='good'],
+  :root:not([data-theme='light'])[data-band='good'] {
+    --band-ink: #6ee7a0;
+  }
+  :root:not([data-theme='light']) [data-band='moderate'],
+  :root:not([data-theme='light'])[data-band='moderate'] {
+    --band-ink: #fcd34d;
+  }
+  :root:not([data-theme='light']) [data-band='sensitive'],
+  :root:not([data-theme='light'])[data-band='sensitive'] {
+    --band-ink: #fdba74;
+  }
+  :root:not([data-theme='light']) [data-band='unhealthy'],
+  :root:not([data-theme='light'])[data-band='unhealthy'] {
+    --band-ink: #fca5a5;
+  }
+  :root:not([data-theme='light']) [data-band='veryUnhealthy'],
+  :root:not([data-theme='light'])[data-band='veryUnhealthy'] {
+    --band-ink: #d8b4fe;
+  }
+  :root:not([data-theme='light']) [data-band='hazardous'],
+  :root:not([data-theme='light'])[data-band='hazardous'] {
+    --band-ink: #fecaca;
+  }
 }
 
 .band-chip {
@@ -281,7 +366,7 @@ body {
 }
 
 .band-colour {
-  color: var(--band-solid);
+  color: var(--band-ink, var(--band-solid));
 }
 
 @keyframes shimmer {

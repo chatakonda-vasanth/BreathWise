@@ -70,7 +70,7 @@ export function AirPanel({
       </div>
 
       {air.isSample ? (
-        <Banner tone="warn" title={t(lang, 'sampleBanner')}>
+        <Banner live="polite" tone="warn" title={t(lang, 'sampleBanner')}>
           <p>{t(lang, 'sampleOn')}</p>
         </Banner>
       ) : null}
@@ -81,7 +81,7 @@ export function AirPanel({
             <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
               {t(lang, 'usAqi')}
             </p>
-            <p className="band-colour text-6xl font-black leading-none tabular-nums sm:text-7xl">
+            <p className="band-colour text-6xl font-bold leading-none tabular-nums sm:text-7xl">
               {Math.round(indices.usAqi)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -102,7 +102,7 @@ export function AirPanel({
             <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
               {t(lang, 'naqi')}
             </p>
-            <p className="band-colour text-4xl font-black leading-none tabular-nums">
+            <p className="band-colour text-4xl font-bold leading-none tabular-nums">
               {Math.round(indices.naqi.value)}
             </p>
             <p className="mt-1 text-sm font-semibold">{naqiLabel}</p>
@@ -129,7 +129,7 @@ export function AirPanel({
 
         {air.isSample ? (
           <p className="mt-2 text-xs font-semibold uppercase tracking-wide">
-            Sample data
+            {t(lang, 'sampleLabel')}
           </p>
         ) : null}
       </div>

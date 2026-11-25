@@ -186,14 +186,14 @@ export function AppShell() {
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-[var(--surface)] focus:px-3 focus:py-2"
       >
-        {t(lang, 'next')}
+        {t(lang, 'skipToContent')}
       </a>
 
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-5">
         <header className="no-print">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-black leading-tight sm:text-3xl">
+              <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
                 {t(lang, 'appName')}
               </h1>
               <p className="hint mt-1 max-w-prose">{t(lang, 'tagline')}</p>
@@ -205,7 +205,7 @@ export function AppShell() {
                   <button
                     key={code}
                     type="button"
-                    className={`btn px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
+                    className={`btn min-w-11 px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
                     aria-pressed={code === lang}
                     onClick={() => setLang(code)}
                   >
@@ -213,12 +213,12 @@ export function AppShell() {
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1" role="group" aria-label="Theme">
+              <div className="flex gap-1" role="group" aria-label={t(lang, 'theme')}>
                 {(['auto', 'light', 'dark'] as ThemeChoice[]).map((choice) => (
                   <button
                     key={choice}
                     type="button"
-                    className={`btn px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
+                    className={`btn min-w-11 px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
                     aria-pressed={theme === choice}
                     onClick={() => setTheme(choice)}
                   >
@@ -235,7 +235,7 @@ export function AppShell() {
             </Banner>
           </div>
 
-          <ol className="mt-4 flex flex-wrap gap-2 text-sm" aria-label="Progress">
+          <ol className="mt-4 flex flex-wrap gap-2 text-sm" aria-label={t(lang, 'progress')}>
             {[1, 2, 3].map((value) => {
               const label =
                 value === 1
@@ -258,7 +258,8 @@ export function AppShell() {
           </ol>
         </header>
 
-        <main id="main" className="mt-4">
+        {/* tabIndex -1 lets the skip link move real focus here. */}
+        <main id="main" tabIndex={-1} className="mt-4 outline-none">
           {step === 1 ? (
             <section aria-labelledby="location-heading">
               <SectionHeading id="location-heading">{t(lang, 'locationTitle')}</SectionHeading>
@@ -270,7 +271,7 @@ export function AppShell() {
 
           {airError ? (
             <div className="mt-3">
-              <Banner tone="warn" title={t(lang, 'unavailable')}>
+              <Banner live="polite" tone="warn" title={t(lang, 'unavailable')}>
                 <p>{t(lang, 'sampleBanner')}</p>
               </Banner>
             </div>
@@ -339,7 +340,7 @@ export function AppShell() {
               ) : null}
               {planError ? (
                 <div className="mt-3">
-                  <Banner tone="warn" title={t(lang, 'planFailed')}>
+                  <Banner live="assertive" tone="warn" title={t(lang, 'planFailed')}>
                     <p>{planError}</p>
                   </Banner>
                 </div>
@@ -351,7 +352,7 @@ export function AppShell() {
             <div className="mt-4">
               {airData?.air.isSample ? (
                 <div className="mb-3">
-                  <Banner tone="warn" title={t(lang, 'sampleBanner')}>
+                  <Banner live="polite" tone="warn" title={t(lang, 'sampleBanner')}>
                     <p>{t(lang, 'sampleOn')}</p>
                   </Banner>
                 </div>

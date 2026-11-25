@@ -13,6 +13,10 @@ const en = {
   back: 'Back',
   next: 'Continue',
   skip: 'Skip',
+  skipToContent: 'Skip to main content',
+  progress: 'Progress',
+  theme: 'Theme',
+  sampleLabel: 'Sample data',
 
   locationTitle: 'Where are you today?',
   locationHelp:
@@ -187,6 +191,10 @@ const hi: Record<UiKey, string | string[]> = {
   back: 'पीछे',
   next: 'आगे बढ़ें',
   skip: 'छोड़ें',
+  skipToContent: 'मुख्य सामग्री पर जाएँ',
+  progress: 'प्रगति',
+  theme: 'थीम',
+  sampleLabel: 'नमूना डेटा',
 
   locationTitle: 'आज आप कहाँ हैं?',
   locationHelp:
@@ -358,6 +366,10 @@ const te: Record<UiKey, string | string[]> = {
   back: 'వెనుకకు',
   next: 'కొనసాగించు',
   skip: 'దాటవేయి',
+  skipToContent: 'ప్రధాన కంటెంట్‌కు వెళ్లండి',
+  progress: 'పురోగతి',
+  theme: 'థీమ్',
+  sampleLabel: 'నమూనా డేటా',
 
   locationTitle: 'ఈరోజు మీరు ఎక్కడ ఉన్నారు?',
   locationHelp:

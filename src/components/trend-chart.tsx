@@ -54,7 +54,7 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
         role="img"
         aria-label={`${label}. ${summary}`}
         className="h-auto w-full"
-        preserveAspectRatio="none"
+        preserveAspectRatio="xMidYMid meet"
       >
         {ticks.map((tick) => (
           <g key={tick}>
@@ -73,11 +73,11 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
           </g>
         ))}
 
-        <path d={areaPath} fill="currentColor" opacity="0.12" />
+        <path d={areaPath} fill="var(--band-ink)" opacity="0.12" />
         <path
           d={linePath}
           fill="none"
-          stroke="var(--band-solid)"
+          stroke="var(--band-ink)"
           strokeWidth="2.5"
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -92,11 +92,11 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
           strokeOpacity="0.5"
           strokeDasharray="4 4"
         />
-        <circle
+                  <circle
           cx={x(nowIndex)}
           cy={y(series[nowIndex]?.usAqi ?? 0)}
           r="4.5"
-          fill="var(--band-solid)"
+          fill="var(--band-ink)"
           stroke="var(--surface)"
           strokeWidth="2"
         />
@@ -130,16 +130,31 @@ export function TrendChart({ history, forecast, label, summary }: ChartProps) {
         {summary} — {label}
       </figcaption>
 
-      {/* Text alternative for screen readers and low-bandwidth mode. */}
-      <details className="mt-2">
+      {/* Table alternative: the same values as the chart, for screen readers,
+          keyboard users, low-bandwidth mode and anyone who cannot read SVG. */}
+      <details className="mt-2" open={false}>
         <summary className="cursor-pointer text-sm font-semibold">{label}</summary>
-        <ul className="mt-2 grid grid-cols-2 gap-x-4 text-sm sm:grid-cols-3">
-          {series.map((point) => (
-            <li key={`${point.time}-${point.usAqi}`} className="tabular-nums">
-              {point.time.slice(11, 16)} — {Math.round(point.usAqi)}
-            </li>
-          ))}
-        </ul>
+        <table className="mt-2 w-full text-sm">
+          <caption className="text-left font-semibold">{label}</caption>
+          <thead>
+            <tr>
+              <th scope="col" className="py-1 text-left font-semibold">
+                {summary}
+              </th>
+              <th scope="col" className="py-1 text-right font-semibold">
+                US AQI
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {series.map((point) => (
+              <tr key={`${point.time}-${point.usAqi}`}>
+                <td className="py-0.5 tabular-nums">{point.time.slice(11, 16)}</td>
+                <td className="py-0.5 text-right tabular-nums">{Math.round(point.usAqi)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </details>
     </figure>
   );
