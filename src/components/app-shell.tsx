@@ -1,11 +1,12 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchAir, requestPlan, type ApiError } from '@/lib/client';
+import { ApiError, fetchAir, requestPlan } from '@/lib/client';
 import type { AirResponse } from '@/lib/apiSchemas';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { roundCoord } from '@/lib/geo';
-import { LANGUAGE_NAMES, SEVERITY_LABELS, t, tList } from '@/lib/i18n';
+import { LANGUAGE_NAMES, SEVERITY_LABELS, loadLanguage, t, tList } from '@/lib/i18n';
 import { buildFallbackPlan } from '@/lib/fallbackPlan';
 import { deriveIndices } from '@/lib/indices';
 import { createSampleSnapshot } from '@/lib/sampleData';
@@ -13,10 +14,19 @@ import type { Profile } from '@/lib/schemas';
 import type { Language, Plan } from '@/lib/types';
 import { AirPanel } from './air-panel';
 import { CitySearch, type SelectedLocation } from './city-search';
-import { PlanView } from './plan-view';
 import { ProfileForm } from './profile-form';
 import { PwaRegister } from './pwa-register';
 import { Banner, LoadingCard, SectionHeading } from './ui';
+
+/**
+ * The plan screen is only reachable after a search and a submit, so its code is
+ * fetched on demand instead of in the first load. The skeleton is decorative;
+ * the live status message above it is what tells a screen reader what is
+ * happening.
+ */
+const PlanView = dynamic(() => import('./plan-view').then((module) => module.PlanView), {
+  loading: () => <div className="skeleton h-48 rounded" aria-hidden="true" />,
+});
 
 const DEFAULT_PROFILE: Profile = {
   adults: 2,
@@ -44,6 +54,117 @@ function sampleResponse(): AirResponse {
   return { air, indices: deriveIndices(air) };
 }
 
+/**
+ * Client entry point and the only stateful
+ * component: owns step, language, theme, air data and the session plan cache.
+ */
+/**
+ * Everything that can change the answer. Two submits with the same key would
+ * ask the model for identical work, so the second one is served from memory.
+ */
+function planCacheKey(
+  profile: Profile,
+  lang: Language,
+  airData: AirResponse | null,
+  location: SelectedLocation,
+): string {
+  return JSON.stringify([
+    profile,
+    lang,
+    airData?.indices.severity ?? null,
+    airData?.air.isSample ?? false,
+    location.lat,
+    location.lon,
+  ]);
+}
+
+/** User-facing text for a failed plan request; never the server's raw code. */
+function planErrorMessage(error: unknown, lang: Language): string {
+  const code = error instanceof ApiError ? error.code : '';
+  return code === 'upstream_unavailable' ? t(lang, 'unavailable') : t(lang, 'planFailed');
+}
+
+const STEP_KEYS = ['stepLocation', 'stepProfile', 'stepPlan'] as const;
+
+interface AppHeaderProps {
+  lang: Language;
+  theme: ThemeChoice;
+  step: Step;
+  onLanguage: (lang: Language) => void;
+  onTheme: (theme: ThemeChoice) => void;
+}
+
+/**
+ * Title, language and theme switchers, the medical notice and the progress
+ * list. Kept out of `AppShell` so the stateful component stays readable.
+ */
+function AppHeader({ lang, theme, step, onLanguage, onTheme }: AppHeaderProps) {
+  return (
+    <header className="no-print">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
+            {t(lang, 'appName')}
+          </h1>
+          <p className="hint mt-1 max-w-prose">{t(lang, 'tagline')}</p>
+        </div>
+
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex gap-1" role="group" aria-label={t(lang, 'language')}>
+            {(Object.keys(LANGUAGE_NAMES) as Language[]).map((code) => (
+              <button
+                key={code}
+                type="button"
+                className={`btn min-w-11 px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
+                aria-pressed={code === lang}
+                onClick={() => onLanguage(code)}
+              >
+                {LANGUAGE_NAMES[code]}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1" role="group" aria-label={t(lang, 'theme')}>
+            {(['auto', 'light', 'dark'] as ThemeChoice[]).map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                className={`btn min-w-11 px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
+                aria-pressed={theme === choice}
+                onClick={() => onTheme(choice)}
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <Banner tone="info">
+          <strong>{t(lang, 'medicalNotice')}</strong>
+        </Banner>
+      </div>
+
+      <ol className="mt-4 flex flex-wrap gap-2 text-sm" aria-label={t(lang, 'progress')}>
+        {STEP_KEYS.map((key, index) => {
+          const value = index + 1;
+          const isCurrent = step === value;
+          return (
+            <li key={key}>
+              <span
+                className={`pill ${isCurrent ? 'band-solid-bg' : ''}`}
+                aria-current={isCurrent ? 'step' : undefined}
+              >
+                <span aria-hidden="true">{value}.</span> {t(lang, key)}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </header>
+  );
+}
+
 export function AppShell() {
   const [lang, setLang] = useState<Language>('en');
   const [theme, setTheme] = useState<ThemeChoice>('auto');
@@ -62,6 +183,13 @@ export function AppShell() {
   const [planSlow, setPlanSlow] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
   const planAbort = useRef<AbortController | null>(null);
+  /**
+   * Plans already generated in this session, keyed by everything that can
+   * change the answer. Regenerating with the same profile in the same AQI band
+   * would ask the model for byte-identical work, so it is served from memory
+   * instead — no request, no rate-limit slot, no model call.
+   */
+  const planCache = useRef(new Map<string, Plan>());
 
   useEffect(() => {
     if (theme === 'auto') {
@@ -108,8 +236,28 @@ export function AppShell() {
     void loadAir(normalised);
   }
 
+  /**
+   * Switch language only after its pack is in memory: `t()` is synchronous, so
+   * rendering first would show a frame of English (or, worse, a half-page in
+   * the old language).
+   */
+  async function selectLanguage(code: Language) {
+    if (code === lang) return;
+    await loadLanguage(code);
+    setLang(code);
+  }
+
   async function handleSubmitPlan() {
     if (!location) return;
+    const cacheKey = planCacheKey(profile, lang, airData, location);
+    const cached = planCache.current.get(cacheKey);
+    if (cached) {
+      setPlanError(null);
+      setPlanLoading(false);
+      setPlan(cached);
+      setStep(3);
+      return;
+    }
     // A regenerate must not race the previous request.
     planAbort.current?.abort();
     const controller = new AbortController();
@@ -131,20 +279,14 @@ export function AppShell() {
         },
         controller.signal,
       );
+      planCache.current.set(cacheKey, response.plan);
       setPlan(response.plan);
       setStep(3);
     } catch (error) {
       // Cancelled by the user: the fallback plan is already on screen, so this
       // is not an error.
       if (controller.signal.aborted) return;
-      const code = (error as ApiError)?.code;
-      setPlanError(
-        code === 'rate_limited'
-          ? t(lang, 'planFailed')
-          : code === 'upstream_unavailable'
-            ? t(lang, 'unavailable')
-            : t(lang, 'planFailed'),
-      );
+      setPlanError(planErrorMessage(error, lang));
     } finally {
       clearTimeout(slowTimer);
       setPlanSlow(false);
@@ -178,7 +320,6 @@ export function AppShell() {
   }
 
   const severity = airData?.indices.severity ?? 'moderate';
-  const glyph = BAND_COLOURS[severity].glyph;
 
   return (
     <div lang={lang} data-band={severity}>
@@ -190,83 +331,18 @@ export function AppShell() {
       </a>
 
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-5">
-        <header className="no-print">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold leading-tight sm:text-3xl">
-                {t(lang, 'appName')}
-              </h1>
-              <p className="hint mt-1 max-w-prose">{t(lang, 'tagline')}</p>
-            </div>
-
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex gap-1" role="group" aria-label={t(lang, 'language')}>
-                {(Object.keys(LANGUAGE_NAMES) as Language[]).map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    className={`btn min-w-11 px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
-                    aria-pressed={code === lang}
-                    onClick={() => setLang(code)}
-                  >
-                    {LANGUAGE_NAMES[code]}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1" role="group" aria-label={t(lang, 'theme')}>
-                {(['auto', 'light', 'dark'] as ThemeChoice[]).map((choice) => (
-                  <button
-                    key={choice}
-                    type="button"
-                    className={`btn min-w-11 px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
-                    aria-pressed={theme === choice}
-                    onClick={() => setTheme(choice)}
-                  >
-                    {choice}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <Banner tone="info">
-              <strong>{t(lang, 'medicalNotice')}</strong>
-            </Banner>
-          </div>
-
-          <ol className="mt-4 flex flex-wrap gap-2 text-sm" aria-label={t(lang, 'progress')}>
-            {[1, 2, 3].map((value) => {
-              const label =
-                value === 1
-                  ? t(lang, 'stepLocation')
-                  : value === 2
-                    ? t(lang, 'stepProfile')
-                    : t(lang, 'stepPlan');
-              const isCurrent = step === value;
-              return (
-                <li key={value}>
-                  <span
-                    className={`pill ${isCurrent ? 'band-solid-bg' : ''}`}
-                    aria-current={isCurrent ? 'step' : undefined}
-                  >
-                    <span aria-hidden="true">{value}.</span> {label}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </header>
+        <AppHeader
+          lang={lang}
+          theme={theme}
+          step={step}
+          onLanguage={(code) => void selectLanguage(code)}
+          onTheme={setTheme}
+        />
 
         {/* tabIndex -1 lets the skip link move real focus here. */}
         <main id="main" tabIndex={-1} className="mt-4 outline-none">
           {step === 1 ? (
-            <section aria-labelledby="location-heading">
-              <SectionHeading id="location-heading">{t(lang, 'locationTitle')}</SectionHeading>
-              <div className="mt-2">
-                <CitySearch lang={lang} onSelect={handleSelectLocation} />
-              </div>
-            </section>
+            <LocationStep lang={lang} onSelect={handleSelectLocation} />
           ) : null}
 
           {airError ? (
@@ -278,121 +354,264 @@ export function AppShell() {
           ) : null}
 
           {step >= 2 ? (
-            <>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 no-print">
-                <p className="text-sm">
-                  <span className="opacity-75">{t(lang, 'choosing')}: </span>
-                  <strong>{location?.label}</strong>
-                </p>
-                <button
-                  type="button"
-                  className="btn text-sm"
-                  onClick={() => {
-                    setStep(1);
-                    setPlan(null);
-                  }}
-                >
-                  {t(lang, 'change')}
-                </button>
-              </div>
-
-              <div className="mt-3">
-                {airLoading ? (
-                  <LoadingCard label={t(lang, 'loading')} />
-                ) : airData ? (
-                  <AirPanel
-                    data={airData}
-                    lang={lang}
-                    lowBandwidth={lowBandwidth}
-                    onToggleLowBandwidth={() => setLowBandwidth((value) => !value)}
-                    onUseSample={() => setAirData(sampleResponse())}
-                    onUseLive={() => {
-                      if (location) void loadAir(location);
-                    }}
-                  />
-                ) : null}
-              </div>
-            </>
+            <AirSection
+              lang={lang}
+              location={location}
+              airLoading={airLoading}
+              airData={airData}
+              lowBandwidth={lowBandwidth}
+              onToggleLowBandwidth={() => setLowBandwidth((value) => !value)}
+              onUseSample={() => setAirData(sampleResponse())}
+              onUseLive={() => {
+                if (location) void loadAir(location);
+              }}
+              onChangeLocation={() => {
+                setStep(1);
+                setPlan(null);
+              }}
+            />
           ) : null}
 
           {step === 2 ? (
-            <div className="mt-4">
-              <ProfileForm
-                lang={lang}
-                value={profile}
-                busy={planLoading}
-                onChange={(patch) => setProfile((current) => ({ ...current, ...patch }))}
-                onSubmit={() => void handleSubmitPlan()}
-                onSkip={() => void handleSubmitPlan()}
-                onBack={() => setStep(1)}
-              />
-              {planLoading ? (
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <p className="hint" role="status" aria-live="polite">
-                    {planSlow ? t(lang, 'generatingSlow') : t(lang, 'generating')}
-                  </p>
-                  {planSlow ? (
-                    <button type="button" className="btn text-sm" onClick={handleCancelPlan}>
-                      {t(lang, 'cancelPlan')}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              {planError ? (
-                <div className="mt-3">
-                  <Banner live="assertive" tone="warn" title={t(lang, 'planFailed')}>
-                    <p>{planError}</p>
-                  </Banner>
-                </div>
-              ) : null}
-            </div>
+            <ProfileStep
+              lang={lang}
+              profile={profile}
+              planLoading={planLoading}
+              planSlow={planSlow}
+              planError={planError}
+              onProfileChange={(patch) =>
+                setProfile((current) => ({ ...current, ...patch }))
+              }
+              onSubmit={() => void handleSubmitPlan()}
+              onBack={() => setStep(1)}
+              onCancel={handleCancelPlan}
+            />
           ) : null}
 
           {step === 3 && plan ? (
-            <div className="mt-4">
-              {airData?.air.isSample ? (
-                <div className="mb-3">
-                  <Banner live="polite" tone="warn" title={t(lang, 'sampleBanner')}>
-                    <p>{t(lang, 'sampleOn')}</p>
-                  </Banner>
-                </div>
-              ) : null}
-              {typeof airData?.indices.usAqi === 'number' ? (
-                <p className="hint mb-3">
-                  {t(lang, 'usAqi')}: {Math.round(airData.indices.usAqi)} ·{' '}
-                  {SEVERITY_LABELS[lang][airData.indices.severity]} <span aria-hidden="true">{glyph}</span>
-                </p>
-              ) : null}
-              <PlanView
-                plan={plan}
-                lang={lang}
-                onBack={() => setStep(2)}
-                onRegenerate={() => void handleSubmitPlan()}
-                profile={profile}
-                pm25={airData?.air.current.pm25 ?? null}
-                lat={location?.lat ?? null}
-                lon={location?.lon ?? null}
-              />
-            </div>
+            <PlanStep
+              lang={lang}
+              plan={plan}
+              airData={airData}
+              profile={profile}
+              location={location}
+              onBack={() => setStep(2)}
+              onRegenerate={() => void handleSubmitPlan()}
+            />
           ) : null}
         </main>
 
-        <footer className="mt-10 border-t border-[var(--border)] pt-4 text-sm no-print">
-          <p>{t(lang, 'footerData')}</p>
-          <p className="hint mt-1">{t(lang, 'footerMedical')}</p>
-
-          <details className="mt-3">
-            <summary className="cursor-pointer font-semibold">{t(lang, 'privacyTitle')}</summary>
-            <ul className="mt-2 list-disc space-y-1 pl-5">
-              {tList(lang, 'privacyBody').map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </details>
-        </footer>
+        <AppFooter lang={lang} />
       </div>
 
       <PwaRegister />
     </div>
+  );
+}
+
+/** Step 1: pick a place. */
+function LocationStep({
+  lang,
+  onSelect,
+}: {
+  lang: Language;
+  onSelect: (selected: SelectedLocation) => void;
+}) {
+  return (
+    <section aria-labelledby="location-heading">
+      <SectionHeading id="location-heading">{t(lang, 'locationTitle')}</SectionHeading>
+      <div className="mt-2">
+        <CitySearch lang={lang} onSelect={onSelect} />
+      </div>
+    </section>
+  );
+}
+
+interface AirSectionProps {
+  lang: Language;
+  location: SelectedLocation | null;
+  airLoading: boolean;
+  airData: AirResponse | null;
+  lowBandwidth: boolean;
+  onToggleLowBandwidth: () => void;
+  onUseSample: () => void;
+  onUseLive: () => void;
+  onChangeLocation: () => void;
+}
+
+/**
+ * The chosen place plus its air panel. Its own component so the busy / loaded /
+ * absent states are one readable branch each instead of nested ternaries inside
+ * the shell.
+ */
+function AirSection({
+  lang,
+  location,
+  airLoading,
+  airData,
+  lowBandwidth,
+  onToggleLowBandwidth,
+  onUseSample,
+  onUseLive,
+  onChangeLocation,
+}: AirSectionProps) {
+  return (
+    <>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 no-print">
+        <p className="text-sm">
+          <span className="opacity-75">{t(lang, 'choosing')}: </span>
+          <strong>{location?.label}</strong>
+        </p>
+        <button type="button" className="btn text-sm" onClick={onChangeLocation}>
+          {t(lang, 'change')}
+        </button>
+      </div>
+
+      <div className="mt-3">
+        {airLoading ? (
+          <LoadingCard label={t(lang, 'loading')} />
+        ) : airData ? (
+          <AirPanel
+            data={airData}
+            lang={lang}
+            lowBandwidth={lowBandwidth}
+            onToggleLowBandwidth={onToggleLowBandwidth}
+            onUseSample={onUseSample}
+            onUseLive={onUseLive}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+interface ProfileStepProps {
+  lang: Language;
+  profile: Profile;
+  planLoading: boolean;
+  planSlow: boolean;
+  planError: string | null;
+  onProfileChange: (patch: Partial<Profile>) => void;
+  onSubmit: () => void;
+  onBack: () => void;
+  onCancel: () => void;
+}
+
+/** Step 2: the profile, plus the generation status and error banner. */
+function ProfileStep({
+  lang,
+  profile,
+  planLoading,
+  planSlow,
+  planError,
+  onProfileChange,
+  onSubmit,
+  onBack,
+  onCancel,
+}: ProfileStepProps) {
+  const status = planSlow ? t(lang, 'generatingSlow') : t(lang, 'generating');
+  return (
+    <div className="mt-4">
+      <ProfileForm
+        lang={lang}
+        value={profile}
+        busy={planLoading}
+        onChange={onProfileChange}
+        onSubmit={onSubmit}
+        onSkip={onSubmit}
+        onBack={onBack}
+      />
+      {planLoading ? (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <p className="hint" role="status" aria-live="polite">
+            {status}
+          </p>
+          {planSlow ? (
+            <button type="button" className="btn text-sm" onClick={onCancel}>
+              {t(lang, 'cancelPlan')}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {planError ? (
+        <div className="mt-3">
+          <Banner live="assertive" tone="warn" title={t(lang, 'planFailed')}>
+            <p>{planError}</p>
+          </Banner>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface PlanStepProps {
+  lang: Language;
+  plan: Plan;
+  airData: AirResponse | null;
+  profile: Profile;
+  location: SelectedLocation | null;
+  onBack: () => void;
+  onRegenerate: () => void;
+}
+
+/** Step 3: provenance banners, the AQI summary line and the plan itself. */
+function PlanStep({
+  lang,
+  plan,
+  airData,
+  profile,
+  location,
+  onBack,
+  onRegenerate,
+}: PlanStepProps) {
+  const usAqi = airData?.indices.usAqi;
+  const severity = airData?.indices.severity ?? 'moderate';
+  return (
+    <div className="mt-4">
+      {airData?.air.isSample ? (
+        <div className="mb-3">
+          <Banner live="polite" tone="warn" title={t(lang, 'sampleBanner')}>
+            <p>{t(lang, 'sampleOn')}</p>
+          </Banner>
+        </div>
+      ) : null}
+      {typeof usAqi === 'number' ? (
+        <p className="hint mb-3">
+          {t(lang, 'usAqi')}: {Math.round(usAqi)} · {SEVERITY_LABELS[lang][severity]}{' '}
+          <span aria-hidden="true">{BAND_COLOURS[severity].glyph}</span>
+        </p>
+      ) : null}
+      <PlanView
+        plan={plan}
+        lang={lang}
+        onBack={onBack}
+        onRegenerate={onRegenerate}
+        profile={profile}
+        pm25={airData?.air.current.pm25 ?? null}
+        lat={location?.lat ?? null}
+        lon={location?.lon ?? null}
+      />
+    </div>
+  );
+}
+
+/** Data attribution and the privacy explainer. */
+function AppFooter({ lang }: { lang: Language }) {
+  return (
+    <footer className="mt-10 border-t border-[var(--border)] pt-4 text-sm no-print">
+      <p>{t(lang, 'footerData')}</p>
+      <p className="hint mt-1">{t(lang, 'footerMedical')}</p>
+
+      <details className="mt-3">
+        <summary className="cursor-pointer font-semibold">
+          {t(lang, 'privacyTitle')}
+        </summary>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          {tList(lang, 'privacyBody').map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </details>
+    </footer>
   );
 }

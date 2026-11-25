@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { deriveIndices, getAirSnapshot, UpstreamError } from '@/lib/air';
+import { withAirCache } from '@/lib/airCache';
 import { createSampleSnapshot } from '@/lib/sampleData';
 import {
   FUNCTION_MAX_DURATION_S,
@@ -14,8 +15,9 @@ import {
   jsonResponse,
   logEvent,
   readJsonBody,
+  type ErrorCode,
 } from '@/lib/http';
-import { generatePlan } from '@/lib/planService';
+import { generatePlan, type PlanResult } from '@/lib/planService';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { planRequestSchema } from '@/lib/schemas';
 
@@ -76,20 +78,16 @@ export async function POST(request: NextRequest): Promise<Response> {
       durationMs: Date.now() - started,
       outcome: limit.reason ?? 'rate_limited',
     });
-    return errorResponse('rate_limited', { 'Retry-After': String(limit.retryAfterSeconds) });
+    return errorResponse('rate_limited', {
+      'Retry-After': String(limit.retryAfterSeconds),
+    });
   }
 
   // 3. Bounded, strict JSON body.
   const body = await readJsonBody(request, MAX_BODY_BYTES);
   if (!body.ok) {
-    const code =
-      body.reason === 'too_large'
-        ? 'body_too_large'
-        : body.reason === 'unsupported_media_type'
-          ? 'unsupported_media_type'
-          : 'invalid_input';
     logEvent({ route: '/api/plan', status: 400, durationMs: Date.now() - started });
-    return errorResponse(code);
+    return errorResponse(bodyErrorCode(body.reason));
   }
 
   const parsed = planRequestSchema.safeParse(body.value);
@@ -102,23 +100,17 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   // 4. Air data is fetched here, never accepted from the caller. The only
   //    exception is the explicit, clearly labelled demo mode.
-  let snapshot;
-  if (sample === true) {
-    snapshot = createSampleSnapshot();
-  } else {
-    try {
-      snapshot = await getAirSnapshot(lat, lon);
-    } catch (error) {
-      const status = error instanceof UpstreamError ? 502 : 500;
-      logEvent({
-        route: '/api/plan',
-        status,
-        durationMs: Date.now() - started,
-        outcome: 'upstream_unavailable',
-      });
-      return errorResponse('upstream_unavailable');
-    }
+  const resolved = await resolveSnapshot(sample, lat, lon);
+  if ('failure' in resolved) {
+    logEvent({
+      route: '/api/plan',
+      status: resolved.failure,
+      durationMs: Date.now() - started,
+      outcome: 'upstream_unavailable',
+    });
+    return errorResponse('upstream_unavailable');
   }
+  const snapshot = resolved.snapshot;
 
   const derived = deriveIndices(snapshot);
 
@@ -147,7 +139,46 @@ export async function POST(request: NextRequest): Promise<Response> {
     outcome: result.usedLlm ? 'llm' : `fallback:${result.reason ?? 'unknown'}`,
   });
 
-  return jsonResponse({
+  return jsonResponse(planResponseBody(result, snapshot, derived));
+}
+
+type Snapshot = Awaited<ReturnType<typeof getAirSnapshot>>;
+type Derived = ReturnType<typeof deriveIndices>;
+
+/** Map a body-read failure onto the client-facing error code. */
+function bodyErrorCode(
+  reason: 'too_large' | 'invalid_json' | 'unsupported_media_type',
+): ErrorCode {
+  if (reason === 'too_large') return 'body_too_large';
+  if (reason === 'unsupported_media_type') return 'unsupported_media_type';
+  return 'invalid_input';
+}
+
+/**
+ * Fetch the air snapshot the plan is built on.
+ *
+ * Sample mode is the only path where the caller influences the data, and it is
+ * labelled as sample in the response. Upstream failures come back as a status
+ * instead of a throw so the caller logs and answers in one place.
+ */
+async function resolveSnapshot(
+  sample: boolean | undefined,
+  lat: number,
+  lon: number,
+): Promise<{ snapshot: Snapshot } | { failure: 500 | 502 }> {
+  if (sample === true) return { snapshot: createSampleSnapshot() };
+  try {
+    // Same cache as /api/air: a plan requested seconds after the air screen
+    // loads must not pay for a second upstream call.
+    return { snapshot: await withAirCache(lat, lon, () => getAirSnapshot(lat, lon)) };
+  } catch (error) {
+    return { failure: error instanceof UpstreamError ? 502 : 500 };
+  }
+}
+
+/** Response body: the plan plus the provenance the UI labels. */
+function planResponseBody(result: PlanResult, snapshot: Snapshot, derived: Derived) {
+  return {
     plan: result.plan,
     air: {
       lat: snapshot.lat,
@@ -165,10 +196,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       ...(result.reason ? { fallbackReason: result.reason } : {}),
       cacheable: false,
     },
-  });
+  };
 }
 
 /** Explicitly no CORS: browsers may only call this from the same origin. */
-export async function OPTIONS(): Promise<Response> {
+export function OPTIONS(): Response {
   return errorResponse('forbidden_origin');
 }

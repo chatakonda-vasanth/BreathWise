@@ -1,4 +1,5 @@
 import { deriveIndices, getAirSnapshot } from '@/lib/air';
+import { withAirCache } from '@/lib/airCache';
 import { RATE_LIMITS } from '@/lib/constants';
 import { errorResponse, getClientIp, jsonResponse, logEvent } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -49,7 +50,9 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
-    const air = await getAirSnapshot(query.data.lat, query.data.lon);
+    const air = await withAirCache(query.data.lat, query.data.lon, () =>
+      getAirSnapshot(query.data.lat, query.data.lon),
+    );
     const indices = deriveIndices(air);
     logEvent({ route: '/api/air', status: 200, durationMs: Date.now() - started });
     return jsonResponse({ air, indices });

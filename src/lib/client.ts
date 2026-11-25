@@ -1,8 +1,12 @@
-import { airResponseSchema, geocodeResponseSchema } from './apiSchemas';
-import { planResponseSchema, type Profile } from './schemas';
-import type { z } from 'zod';
+import type { Profile } from './schemas';
+import { isAirResponse, isGeocodeResponse, isPlanResponse } from './responseGuards';
 
-/** Browser-side API access. Every response is validated before use. */
+/**
+ * Browser-side API access. Every response is shape-checked before use; see
+ * `responseGuards` for why the checks are hand-written instead of zod (zod is
+ * a server-side parse of untrusted input, and ~40 KiB the browser need not
+ * download).
+ */
 
 export class ApiError extends Error {
   constructor(
@@ -36,28 +40,27 @@ async function requestJson(url: string, init?: RequestInit): Promise<unknown> {
   if (!response.ok) {
     const code =
       payload && typeof payload === 'object' && 'error' in payload
-        ? String((payload as { error: unknown }).error)
+        ? String(payload.error)
         : 'server_error';
     throw new ApiError(response.status, code);
   }
   return payload;
 }
 
-function validate<T extends z.ZodType>(schema: T, value: unknown): z.infer<T> {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) throw new ApiError(502, 'invalid_response');
-  return parsed.data;
+function validate<T>(guard: (value: unknown) => value is T, value: unknown): T {
+  if (!guard(value)) throw new ApiError(502, 'invalid_response');
+  return value;
 }
 
 export async function fetchAir(lat: number, lon: number) {
   const url = `/api/air?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`;
   const payload = await requestJson(url);
-  return validate(airResponseSchema, payload);
+  return validate(isAirResponse, payload);
 }
 
 export async function searchCities(query: string) {
   const payload = await requestJson(`/api/geocode?q=${encodeURIComponent(query)}`);
-  return validate(geocodeResponseSchema, payload).results;
+  return validate(isGeocodeResponse, payload).results;
 }
 
 export async function requestPlan(
@@ -75,5 +78,5 @@ export async function requestPlan(
     body: JSON.stringify(input),
     signal,
   });
-  return validate(planResponseSchema, payload);
+  return validate(isPlanResponse, payload);
 }

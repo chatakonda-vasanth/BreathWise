@@ -4,8 +4,21 @@ import type { AirResponse } from '@/lib/apiSchemas';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { NAQI_LABELS, SEVERITY_LABELS, US_BAND_LABELS, t } from '@/lib/i18n';
 import type { Language } from '@/lib/types';
-import { TrendChart } from './trend-chart';
+import dynamic from 'next/dynamic';
 import { BandChip, Banner, SectionHeading } from './ui';
+
+/**
+ * The chart is the heaviest thing on the air screen and it is not needed to act
+ * on the number above it, so it is split out of the first-load bundle. The
+ * skeleton is decorative: the values are already available as text (and as the
+ * chart's own table) once the chunk lands.
+ */
+const TrendChart = dynamic(
+  () => import('./trend-chart').then((module) => module.TrendChart),
+  {
+    loading: () => <div className="skeleton h-32 rounded" aria-hidden="true" />,
+  },
+);
 
 interface AirPanelProps {
   data: AirResponse;
@@ -20,6 +33,10 @@ function fmt(value: number | null, digits = 0): string {
   return value === null || Number.isNaN(value) ? '—' : value.toFixed(digits);
 }
 
+/**
+ * Air-quality screen: current values,
+ * pollutant cards, the two indices and the lazy-loaded trend chart.
+ */
 export function AirPanel({
   data,
   lang,
@@ -85,7 +102,11 @@ export function AirPanel({
               {Math.round(indices.usAqi)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <BandChip band={severity} label={`${severityLabel} (${usLabel})`} glyph={colour.glyph} />
+              <BandChip
+                band={severity}
+                label={`${severityLabel} (${usLabel})`}
+                glyph={colour.glyph}
+              />
             </div>
             {typeof change === 'number' ? (
               <p className="hint mt-2">
@@ -159,7 +180,9 @@ function TrendChartLazy({ data, lang }: { data: AirResponse; lang: Language }) {
   const { air } = data;
   return (
     <>
-      <h3 className="text-base font-bold">{t(lang, 'history')} / {t(lang, 'forecast')}</h3>
+      <h3 className="text-base font-bold">
+        {t(lang, 'history')} / {t(lang, 'forecast')}
+      </h3>
       <TrendChart
         history={air.history}
         forecast={air.forecast}
