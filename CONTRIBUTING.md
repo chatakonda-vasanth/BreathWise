@@ -14,6 +14,53 @@ No key is required: without `GEMINI_API_KEY` every plan is the deterministic
 fallback, and without live air data the app labels the sample snapshot. Copy
 `.env.example` to `.env.local` only if you want to exercise the model path.
 
+## Repository layout
+
+```
+src/
+  app/                  Next.js App Router: pages and route handlers
+    api/{air,geocode,health,plan}/   JSON endpoints (each: thin handler + lib calls)
+    .well-known/security.txt/        RFC 9116 contact file
+  components/           React components, grouped by screen
+    air/  app/  chart/  location/  plan/  profile/   one folder per screen area
+  hooks/                Client state, one concern per hook
+  lib/                  Framework-free logic (server and client)
+    planContent/        Reviewed fallback copy, one file per language
+    i18n/               UI strings, one file per language
+  instrumentation.ts    Startup configuration check
+  proxy.ts              Route middleware (security headers)
+tests/
+  unit/                 Pure logic and component contracts
+  security/             Attack-focused checks (guards, limits, key hygiene)
+  e2e/                  Real browser: flows and axe accessibility scans
+  live/                 Opt-in tests against the real model (never in CI)
+scripts/                Build, bundle-budget and Lighthouse tooling
+```
+
+## Conventions
+
+- **One job per module.** A file exports either a component, a hook or a set
+  of pure functions — not a mixture. Screens compose small components from
+  their `components/<area>/` folder; the screen file itself only decides order.
+- **Server code never reaches the browser.** Anything that reads `readEnv()`
+  lives in `src/lib` and is imported only from `src/app/api/**` or route
+  handlers. The guards in `src/lib/responseGuards.ts` exist so the browser can
+  validate a response without pulling zod in.
+- **Named exports, no default exports.** Components are `PascalCase.tsx`,
+  hooks are `use-thing.ts`, everything else is `kebab-case.ts`.
+- **JSDoc on every exported function**: what it does, its inputs, and any
+  assumption a reader must know (for example that an estimate is a rule of
+  thumb). Internal helpers get a one-line comment only when the reason is not
+  obvious from the name.
+- **Types over casts.** `strict` and `noUncheckedIndexedAccess` are on; there
+  are no `any`, no `@ts-ignore` and no non-null assertions. If a value can be
+  absent, say so in the type.
+- **Size limits are enforced by lint**, not by review: complexity ≤ 10, 60
+  lines per function, 320 lines per file. Exceeding one means the unit has more
+  than one job.
+- **New UI string?** Add it to all three packs in `src/lib/i18n`; the i18n test
+  fails if a key is missing.
+
 ## Before you open a pull request
 
 ```bash
@@ -23,6 +70,9 @@ npm run test:e2e # Playwright, after a build; needs a Chromium install
 
 - Coverage must stay at or above 90% statements/lines/functions and 85% branches
   for `src/lib`. The thresholds are enforced by `npm test`, not by review.
+- `npm run lint` runs with `--max-warnings=0`: a warning fails the build just
+  like an error.
+- `.editorconfig` and `.prettierrc` agree; run `npm run format:check`.
 - Add or update a test for every behaviour change. Tests live in `tests/unit`,
   `tests/security` (attack-focused) and `tests/e2e` (real browser).
 - Never weaken a control to make a test pass. If a control needs to change,
