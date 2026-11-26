@@ -3,15 +3,17 @@ import { APP_NAME } from '@/lib/constants';
 /**
  * RFC 9116 security contact file.
  *
- * The contact is a clearly marked placeholder: no address is invented, and the
- * operator must replace it before publishing a real deployment. The response is
- * a static string with no personal data, no configuration and no request input
- * echoed back, so it is safe to serve as a plain public document.
+ * The contact is the repository's private GitHub security-advisory form: a
+ * real, monitored destination that needs no personal address to be published.
+ * The response is a static string with no personal data, no configuration and
+ * no request input echoed back, so it is safe to serve as a plain public
+ * document.
  */
 
 // No `dynamic = 'force-static'`: the canonical URL is derived from the request
 // origin, so this must render per request rather than at build time.
-const CONTACT = 'PUT_MY_REAL_EMAIL_HERE';
+const CONTACT =
+  'https://github.com/chatakonda-vasanth/BreathWise/security/advisories/new';
 
 /**
  * Serve the RFC 9116 contact file for the requesting origin.
@@ -25,7 +27,7 @@ export function GET(request: Request): Response {
 
   const body = [
     `# ${APP_NAME} security contact`,
-    `Contact: mailto:${CONTACT}`,
+    `Contact: ${CONTACT}`,
     `Expires: ${expires}`,
     'Preferred-Languages: en, hi, te',
     `Canonical: ${origin}/.well-known/security.txt`,

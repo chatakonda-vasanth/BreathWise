@@ -10,7 +10,9 @@ describe('RFC 9116 security.txt', () => {
     expect(response.headers.get('content-type')).toContain('text/plain');
 
     const body = await response.text();
-    expect(body).toContain('Contact: mailto:PUT_MY_REAL_EMAIL_HERE');
+    expect(body).toContain(
+      'Contact: https://github.com/chatakonda-vasanth/BreathWise/security/advisories/new',
+    );
     expect(body).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T/m);
     expect(body).toContain('Preferred-Languages:');
     expect(body).toContain('/.well-known/security.txt');

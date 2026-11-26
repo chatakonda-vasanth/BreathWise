@@ -38,7 +38,7 @@ entirely in the browser and are never added to a model prompt.
 | #   | Severity      | Finding                                                                                                                                                                                                               | Fix                                                                                                                                                                                                                  | Proof                                                                                                          |
 | --- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | 1   | **High**      | Eight high-severity advisories in transitive build tooling: `glob` (command injection, cancellation bypass), `sharp`/`undici` via `wrangler`→`miniflare`, `minimatch` (ReDoS). Present in `npm audit` at review time. | Upgraded `wrangler` to 4.168.0 and `@opennextjs/cloudflare` to 1.20.18; pinned patched transitive versions with `overrides` (`glob@14.0.6`, `minimatch@11.0.9`, `sharp@0.35.5`); all direct versions pinned exactly. | `npm audit --audit-level=low` → `found 0 vulnerabilities` (run in CI on every push)                            |
-| 2   | Low           | No `/.well-known/security.txt`, so a researcher had no machine-readable contact.                                                                                                                                      | Added the route with a clearly marked placeholder contact (`PUT_MY_REAL_EMAIL_HERE`); no address invented.                                                                                                           | `npx vitest run tests/security/securityTxt.test.ts`                                                            |
+| 2   | Low           | No `/.well-known/security.txt`, so a researcher had no machine-readable contact.                                                                                                                                      | Added the route, pointing `Contact:` at the repository's private GitHub security-advisory form, so no personal address is published.                                                                                 | `npx vitest run tests/security/securityTxt.test.ts`                                                            |
 | 3   | Low           | Attack-focused tests were interleaved with feature tests, making the security evidence hard to audit.                                                                                                                 | Moved them to `tests/security/` and added `npm run test:security`.                                                                                                                                                   | `npm run test:security` → 9 files, 83 tests                                                                    |
 | 4   | Informational | The new regional/impact layers could in principle reintroduce place data into the prompt.                                                                                                                             | They are client-only and the prompt builder does not import them.                                                                                                                                                    | `npx vitest run tests/unit/regional.test.ts` (asserts no import in `prompt.ts`, `planService.ts`, `gemini.ts`) |
 
@@ -108,10 +108,12 @@ risk is recorded under [Known limitations](#known-limitations).
 
 If you find a vulnerability:
 
-1. Email the address in [`/.well-known/security.txt`](https://breathwise-u27mzs.freebuff.site/.well-known/security.txt).
-   The repository ships the clearly marked placeholder **`PUT_MY_REAL_EMAIL_HERE`**;
-   the operator must replace it before a real deployment relies on it. No real
-   address is invented here.
+1. Use the contact in
+   [`/.well-known/security.txt`](https://breathwise-u27mzs.freebuff.site/.well-known/security.txt).
+   It points at the repository's
+   [private security-advisory form](https://github.com/chatakonda-vasanth/BreathWise/security/advisories/new),
+   which keeps the details out of the public issue tracker and lets GitHub request
+   a CVE where one is warranted. No personal email address is published.
 2. Include the affected URL or file, the steps to reproduce, and the impact you
    observed. Do not include real personal data.
 3. Please do not run load tests, automated scanners or denial-of-service tests
