@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * End-to-end coverage of the whole household flow against the production build.
@@ -261,46 +261,53 @@ test('the limiter-unavailable path fails closed, never open', async ({
   expect(planBody.meta.fallbackReason).toBe('limiter_unavailable');
 });
 
-/** Press Tab until the predicate is true for the focused element. */
-async function tabUntil(page: Page, check: () => Promise<boolean>, max = 80) {
+/**
+ * Press Tab until `target` has focus.
+ *
+ * Each stage waits for its target to be visible first, so a list that renders
+ * mid-sequence cannot shift the tab order, and the loop ends on Playwright's
+ * auto-waiting `toBeFocused()` assertion so a keyboard trap fails loudly with
+ * the element it never reached instead of a bare timeout.
+ */
+async function tabTo(page: Page, target: Locator, max = 80) {
   for (let i = 0; i < max; i += 1) {
-    if (await check()) return;
+    const focused = await target
+      .evaluate((node) => node === document.activeElement)
+      .catch(() => false);
+    if (focused) break;
     await page.keyboard.press('Tab');
   }
-  throw new Error('keyboard focus never reached the target');
+  await expect(target).toBeFocused();
 }
 
 test('the whole flow can be completed with the keyboard alone', async ({ page }) => {
   await mockGeocode(page);
   await page.goto('/');
 
-  await tabUntil(page, () =>
-    page.evaluate(() => document.activeElement?.id === 'city-query'),
-  );
+  const cityInput = page.locator('#city-query');
+  await expect(cityInput).toBeVisible();
+  await tabTo(page, cityInput);
   await page.keyboard.type('Delhi');
   await page.keyboard.press('Enter');
 
-  await tabUntil(page, () =>
-    page.evaluate(() => (document.activeElement?.textContent ?? '').includes('Delhi')),
-  );
+  const result = page.getByRole('button', { name: /Delhi/ }).first();
+  await expect(result).toBeVisible();
+  await tabTo(page, result);
   await page.keyboard.press('Enter');
 
   await expect(page.getByRole('heading', { name: /Quick profile/ })).toBeVisible();
 
-  await tabUntil(page, () =>
-    page.evaluate(() => (document.activeElement?.textContent ?? '').trim() === 'Skip'),
-  );
+  const skip = page.getByRole('button', { name: /^Skip$/ }).first();
+  await expect(skip).toBeVisible();
+  await tabTo(page, skip);
   await page.keyboard.press('Enter');
 
   // Focus reaches the plan controls and the read-aloud button works via Enter.
   await expect(page.getByText(/Direct impact/i).first()).toBeVisible({ timeout: 20_000 });
-  await tabUntil(page, () =>
-    page.evaluate(() =>
-      (document.activeElement?.textContent ?? '').includes('Read aloud'),
-    ),
-  );
+
+  const readAloud = page.getByRole('button', { name: /Read aloud|Stop reading/ }).first();
+  await expect(readAloud).toBeVisible();
+  await tabTo(page, readAloud);
   await page.keyboard.press('Enter');
-  await expect(
-    page.getByRole('button', { name: /Stop reading|Read aloud/ }),
-  ).toHaveAttribute('aria-pressed', /true|false/);
+  await expect(readAloud).toHaveAttribute('aria-pressed', /true|false/);
 });
