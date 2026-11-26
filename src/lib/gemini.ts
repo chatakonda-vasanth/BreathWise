@@ -52,6 +52,27 @@ export function thinkingConfigFor(model: string): Record<string, unknown> {
 
 const STRING = (description: string) => ({ type: 'STRING', description });
 
+const IMPACT_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    mechanism: STRING('Why it works.'),
+    estimatedReduction: STRING('Estimated effect, as a range or description.'),
+    assumption: STRING('The assumption behind that estimate.'),
+    confidence: { type: 'STRING', enum: ['High', 'Medium', 'Low'] },
+  },
+  required: ['mechanism', 'estimatedReduction', 'assumption', 'confidence'],
+} as const;
+
+const RECOMMENDATION_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    title: STRING('Short action title.'),
+    detail: STRING('How to do it, concretely.'),
+    impact: IMPACT_SCHEMA,
+  },
+  required: ['title', 'detail', 'impact'],
+} as const;
+
 /** OpenAPI-subset response schema; keeps the model on the exact shape we parse. */
 export const RESPONSE_SCHEMA = {
   type: 'OBJECT',
@@ -63,48 +84,8 @@ export const RESPONSE_SCHEMA = {
     maskGuidance: STRING('Mask advice for this band.'),
     schoolAndCommute: STRING('School run and commute adjustments.'),
     exerciseTiming: STRING('Exercise timing advice.'),
-    indoorHacks: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          title: STRING('Short action title.'),
-          detail: STRING('How to do it, concretely.'),
-          impact: {
-            type: 'OBJECT',
-            properties: {
-              mechanism: STRING('Why it works.'),
-              estimatedReduction: STRING('Estimated effect, as a range or description.'),
-              assumption: STRING('The assumption behind that estimate.'),
-              confidence: { type: 'STRING', enum: ['High', 'Medium', 'Low'] },
-            },
-            required: ['mechanism', 'estimatedReduction', 'assumption', 'confidence'],
-          },
-        },
-        required: ['title', 'detail', 'impact'],
-      },
-    },
-    sustainableAlternatives: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          title: STRING('Short action title.'),
-          detail: STRING('How to do it, concretely.'),
-          impact: {
-            type: 'OBJECT',
-            properties: {
-              mechanism: STRING('Why it works.'),
-              estimatedReduction: STRING('Estimated effect, as a range or description.'),
-              assumption: STRING('The assumption behind that estimate.'),
-              confidence: { type: 'STRING', enum: ['High', 'Medium', 'Low'] },
-            },
-            required: ['mechanism', 'estimatedReduction', 'assumption', 'confidence'],
-          },
-        },
-        required: ['title', 'detail', 'impact'],
-      },
-    },
+    indoorHacks: { type: 'ARRAY', items: RECOMMENDATION_SCHEMA },
+    sustainableAlternatives: { type: 'ARRAY', items: RECOMMENDATION_SCHEMA },
   },
   required: [
     'headline',
@@ -149,20 +130,17 @@ export interface CallLlmArgs {
   schema?: unknown;
 }
 
-/** Returns raw model text (still untrusted). Throws LlmError on any failure. */
-export async function callGemini(args: CallLlmArgs): Promise<string> {
-  const apiKey = args.apiKey.trim();
-  if (!apiKey) throw new LlmError('no_api_key');
-
-  const model = args.model ?? getModelId();
-  if (!SAFE_MODEL_ID.test(model)) throw new LlmError('upstream_error');
-
-  const endpoint = new URL(
+/** GenerateContent endpoint for a model id that already passed validation. */
+function endpointFor(model: string): string {
+  return new URL(
     `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     GEMINI_HOST,
-  );
+  ).toString();
+}
 
-  const body = {
+/** Request body: one system turn, one user turn, JSON output, no tools. */
+function requestBody(args: CallLlmArgs, model: string): Record<string, unknown> {
+  return {
     systemInstruction: { parts: [{ text: args.system }] },
     contents: [{ role: 'user', parts: [{ text: args.user }] }],
     generationConfig: {
@@ -175,10 +153,17 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
     // No tools, no code execution, no grounding: the model can only answer.
     toolConfig: { functionCallingConfig: { mode: 'NONE' } },
   };
+}
 
-  let response: Response;
+/** POST the request, mapping transport failures onto LlmError. */
+async function post(
+  endpoint: string,
+  body: Record<string, unknown>,
+  apiKey: string,
+  timeoutMs: number,
+): Promise<Response> {
   try {
-    response = await fetch(endpoint.toString(), {
+    return await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -189,7 +174,7 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
       // outright, so a 3xx is returned and rejected below instead.
       redirect: 'manual',
       cache: 'no-store',
-      signal: AbortSignal.timeout(args.timeoutMs ?? LLM_ATTEMPT_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     if (error instanceof Error && error.name === 'TimeoutError') {
@@ -197,21 +182,50 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
     }
     throw new LlmError('upstream_error');
   }
+}
 
+/** Reject a redirect, a rate limit or any other non-2xx answer. */
+function assertUsable(response: Response): void {
   if (response.status >= 300 && response.status < 400) {
     throw new LlmError('upstream_error');
   }
   if (response.status === 429) throw new LlmError('rate_limited');
   if (!response.ok) throw new LlmError('upstream_error');
+}
 
-  let payload: unknown;
+/** Parse the upstream JSON body, never trusting its shape. */
+async function readPayload(response: Response): Promise<unknown> {
   try {
-    payload = (await response.json()) as unknown;
+    return (await response.json()) as unknown;
   } catch {
     throw new LlmError('upstream_error');
   }
+}
 
-  const text = extractText(payload);
+/**
+ * Call the model and return its raw text (still untrusted).
+ *
+ * @param args System and user turns, API key, optional model, timeout and schema.
+ * @returns The concatenated text of the first candidate.
+ * @throws {LlmError} On a missing key, unsafe model id, timeout, redirect, rate
+ * limit, non-2xx status, unparseable body or an empty answer.
+ */
+export async function callGemini(args: CallLlmArgs): Promise<string> {
+  const apiKey = args.apiKey.trim();
+  if (!apiKey) throw new LlmError('no_api_key');
+
+  const model = args.model ?? getModelId();
+  if (!SAFE_MODEL_ID.test(model)) throw new LlmError('upstream_error');
+
+  const response = await post(
+    endpointFor(model),
+    requestBody(args, model),
+    apiKey,
+    args.timeoutMs ?? LLM_ATTEMPT_TIMEOUT_MS,
+  );
+  assertUsable(response);
+
+  const text = extractText(await readPayload(response));
   if (!text) throw new LlmError('invalid_output');
   return text;
 }

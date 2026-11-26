@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import type { z } from 'zod';
 import { deriveIndices, getAirSnapshot, UpstreamError } from '@/lib/air';
 import { withAirCache } from '@/lib/airCache';
 import { createSampleSnapshot } from '@/lib/sampleData';
@@ -8,15 +9,15 @@ import {
   RATE_LIMITS,
   ROUTE_RESPONSE_MARGIN_MS,
 } from '@/lib/constants';
+import { getClientIp } from '@/lib/clientIp';
 import {
   checkOrigin,
   errorResponse,
-  getClientIp,
   jsonResponse,
   logEvent,
-  readJsonBody,
   type ErrorCode,
 } from '@/lib/http';
+import { readJsonBody } from '@/lib/requestBody';
 import { generateAnswer, type AnswerResult } from '@/lib/ask';
 import { generatePlan, type PlanResult } from '@/lib/planService';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -43,64 +44,98 @@ export const maxDuration = 45;
  * The air snapshot used for the prompt is always re-fetched server-side, so a
  * caller cannot inject invented air data or free text into the model.
  */
-export async function POST(request: NextRequest): Promise<Response> {
-  const started = Date.now();
-  const headers = new Headers(request.headers);
+type PlanRequest = z.infer<typeof planRequestSchema>;
 
-  // 1. Same-origin only (no wildcard CORS anywhere). Done before the limiter so
-  //    a cross-site form POST cannot burn the visitor's request budget, and so
-  //    a rejected request costs no Upstash command.
+/** A request that passed every gate, or the response that rejected it. */
+type GateResult =
+  | { ok: true; data: PlanRequest; limiterUnavailable: boolean }
+  | { ok: false; response: Response };
+
+/** Reject a cross-site request; this route can spend money. */
+function originGate(request: NextRequest, started: number): Response | null {
   const origin = checkOrigin(request);
-  if (!origin.ok) {
-    logEvent({
-      route: '/api/plan',
-      status: 403,
-      durationMs: Date.now() - started,
-      outcome: origin.reason ?? 'forbidden_origin',
-    });
-    return errorResponse('forbidden_origin');
-  }
+  if (origin.ok) return null;
+  logEvent({
+    route: '/api/plan',
+    status: 403,
+    durationMs: Date.now() - started,
+    outcome: origin.reason ?? 'forbidden_origin',
+  });
+  return errorResponse('forbidden_origin');
+}
 
-  // 2. Rate limit and fail closed: this route can spend money.
+/**
+ * Rate-limit the request and fail closed: this route can spend money.
+ *
+ * A missing or unreachable limiter must never leave this route unlimited. The
+ * app's purpose is to give a safe plan, so instead of an error the request
+ * continues to the labelled rule-based plan with no model call.
+ */
+async function limitGate(
+  request: NextRequest,
+  started: number,
+): Promise<{ response: Response } | { limiterUnavailable: boolean }> {
   const limit = await enforceRateLimit({
     name: 'plan',
     limit: RATE_LIMITS.plan.limit,
     windowMs: RATE_LIMITS.plan.windowMs,
-    ip: getClientIp(headers),
+    ip: getClientIp(new Headers(request.headers)),
   });
-  // A missing or unreachable limiter must never leave this route unlimited.
-  // The app's purpose is to give a safe plan, so instead of an error the
-  // request continues to the labelled rule-based plan with no model call.
-  const limiterUnavailable = !limit.ok && limit.reason === 'limiter_unavailable';
-  if (!limit.ok && !limiterUnavailable) {
-    logEvent({
-      route: '/api/plan',
-      status: 429,
-      durationMs: Date.now() - started,
-      outcome: limit.reason ?? 'rate_limited',
-    });
-    return errorResponse('rate_limited', {
-      'Retry-After': String(limit.retryAfterSeconds),
-    });
-  }
+  if (limit.ok) return { limiterUnavailable: false };
+  if (limit.reason === 'limiter_unavailable') return { limiterUnavailable: true };
 
-  // 3. Bounded, strict JSON body.
+  logEvent({
+    route: '/api/plan',
+    status: 429,
+    durationMs: Date.now() - started,
+    outcome: limit.reason ?? 'rate_limited',
+  });
+  return {
+    response: errorResponse('rate_limited', {
+      'Retry-After': String(limit.retryAfterSeconds),
+    }),
+  };
+}
+
+/** Bounded, strict JSON body: the only input this route accepts. */
+async function bodyGate(request: NextRequest, started: number): Promise<GateResult> {
   const body = await readJsonBody(request, MAX_BODY_BYTES);
   if (!body.ok) {
     logEvent({ route: '/api/plan', status: 400, durationMs: Date.now() - started });
-    return errorResponse(bodyErrorCode(body.reason));
+    return { ok: false, response: errorResponse(bodyErrorCode(body.reason)) };
   }
 
   const parsed = planRequestSchema.safeParse(body.value);
   if (!parsed.success) {
     logEvent({ route: '/api/plan', status: 400, durationMs: Date.now() - started });
-    return errorResponse('invalid_input');
+    return { ok: false, response: errorResponse('invalid_input') };
   }
 
-  const { profile, lat, lon, sample, question } = parsed.data;
+  return { ok: true, data: parsed.data, limiterUnavailable: false };
+}
 
-  // 4. Air data is fetched here, never accepted from the caller. The only
-  //    exception is the explicit, clearly labelled demo mode.
+/**
+ * POST /api/plan
+ *
+ * The only body accepted is the validated structured profile plus coordinates.
+ * The air snapshot used for the prompt is always re-fetched server-side, so a
+ * caller cannot inject invented air data or free text into the model.
+ */
+export async function POST(request: NextRequest): Promise<Response> {
+  const started = Date.now();
+
+  const rejectedOrigin = originGate(request, started);
+  if (rejectedOrigin) return rejectedOrigin;
+
+  const limit = await limitGate(request, started);
+  if ('response' in limit) return limit.response;
+
+  const gate = await bodyGate(request, started);
+  if (!gate.ok) return gate.response;
+  const { profile, lat, lon, sample, question } = gate.data;
+
+  // Air data is fetched here, never accepted from the caller. The only
+  // exception is the explicit, clearly labelled demo mode.
   const resolved = await resolveSnapshot(sample, lat, lon);
   if ('failure' in resolved) {
     logEvent({
@@ -112,7 +147,6 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse('upstream_unavailable');
   }
   const snapshot = resolved.snapshot;
-
   const derived = deriveIndices(snapshot);
 
   // Hand the model only what is left of the function's wall clock, minus the
@@ -120,8 +154,8 @@ export async function POST(request: NextRequest): Promise<Response> {
   const budgetMs =
     FUNCTION_MAX_DURATION_S * 1000 - ROUTE_RESPONSE_MARGIN_MS - (Date.now() - started);
 
-  // 5a. A quick question is answered through the same guardrails and the same
-  //     labelled fallback, with no free-text field anywhere in the request.
+  // A quick question is answered through the same guardrails and the same
+  // labelled fallback, with no free-text field anywhere in the request.
   if (question) {
     const answered = await generateAnswer({
       question,
@@ -130,13 +164,15 @@ export async function POST(request: NextRequest): Promise<Response> {
       derived,
       severity: derived.severity,
       language: profile.language,
-      ...(limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
+      ...(limit.limiterUnavailable
+        ? { fallbackOnly: 'limiter_unavailable' as const }
+        : {}),
       budgetMs,
     });
     return logAndAnswer(answered, question, snapshot, derived, started);
   }
 
-  // 5b. LLM or deterministic fallback. Never throws: failures fall back.
+  // LLM or deterministic fallback. Never throws: failures fall back.
   const result = await generatePlan({
     profile,
     snapshot,
@@ -146,7 +182,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     language: profile.language,
     // No rate limiting means no model call at all: the free tier cannot be
     // protected, so the paid path stays off until Upstash is reachable.
-    ...(limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
+    ...(limit.limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
     // generatePlan clamps and never starts an attempt it cannot finish before
     // the deadline.
     budgetMs,

@@ -126,7 +126,7 @@ export interface AnswerResult {
   reason?: FallbackReason;
 }
 
-/** Pick an indoor hack by position, degrading to whatever the plan carries. */
+/** Pick an indoor measure by position, degrading to whatever the plan carries. */
 function hackText(plan: Plan, index: number): string {
   const items: Recommendation[] = plan.indoorHacks;
   const item = items[index] ?? items[0];
@@ -210,39 +210,33 @@ function validateAnswer(raw: string, language: Language): ValidatedAnswer {
  * Answer one quick question: the model when allowed, otherwise the labelled
  * rule-based guidance. Never throws.
  */
-export async function generateAnswer(args: AnswerArgs): Promise<AnswerResult> {
-  if (args.fallbackOnly) {
-    return {
-      answer: fallbackAnswer(args, args.fallbackOnly),
-      usedLlm: false,
-      reason: args.fallbackOnly,
-    };
-  }
+/** A finished answer with the labelled fallback, with no model call. */
+function fallbackResult(args: AnswerArgs, reason: FallbackReason): AnswerResult {
+  return { answer: fallbackAnswer(args, reason), usedLlm: false, reason };
+}
 
-  if (llmDisabled()) {
-    return {
-      answer: fallbackAnswer(args, 'llm_disabled'),
-      usedLlm: false,
-      reason: 'llm_disabled',
-    };
-  }
-
-  const apiKey = readEnv('GEMINI_API_KEY')?.trim();
-  if (!apiKey) {
-    return {
-      answer: fallbackAnswer(args, 'no_api_key'),
-      usedLlm: false,
-      reason: 'no_api_key',
-    };
-  }
+/**
+ * Every reason not to call the model, decided before a request is built.
+ *
+ * @returns A complete answer, or null when the model may be called.
+ */
+async function blockedAnswer(args: AnswerArgs): Promise<AnswerResult | null> {
+  if (args.fallbackOnly) return fallbackResult(args, args.fallbackOnly);
+  if (llmDisabled()) return fallbackResult(args, 'llm_disabled');
+  if (!readEnv('GEMINI_API_KEY')?.trim()) return fallbackResult(args, 'no_api_key');
 
   const quota = await consumeDailyLlmQuota(dailyCap());
   if (!quota.allowed) {
     const reason: FallbackReason =
       quota.reason === 'daily_cap' ? 'daily_cap' : 'quota_unavailable';
-    return { answer: fallbackAnswer(args, reason), usedLlm: false, reason };
+    return fallbackResult(args, reason);
   }
 
+  return null;
+}
+
+/** One model attempt, with validation and the labelled fallback on any failure. */
+async function modelAnswer(args: AnswerArgs, apiKey: string): Promise<AnswerResult> {
   const timeoutMs = Math.max(
     1,
     Math.min(args.budgetMs ?? attemptTimeoutMs(), attemptTimeoutMs()),
@@ -257,22 +251,35 @@ export async function generateAnswer(args: AnswerArgs): Promise<AnswerResult> {
       schema: ASK_RESPONSE_SCHEMA,
     });
     const validated = validateAnswer(raw, args.language);
-    if (validated.text) {
-      return {
-        answer: {
-          question: args.question,
-          language: args.language,
-          text: validated.text,
-          generatedBy: 'llm',
-        },
-        usedLlm: true,
-      };
+    if (!validated.text) {
+      return fallbackResult(args, validated.reason ?? 'invalid_output');
     }
-    const reason = validated.reason ?? 'invalid_output';
-    return { answer: fallbackAnswer(args, reason), usedLlm: false, reason };
+    return {
+      answer: {
+        question: args.question,
+        language: args.language,
+        text: validated.text,
+        generatedBy: 'llm',
+      },
+      usedLlm: true,
+    };
   } catch {
     // Transport/timeout failures: the same labelling as the plan path.
-    const reason: FallbackReason = 'upstream_error';
-    return { answer: fallbackAnswer(args, reason), usedLlm: false, reason };
+    return fallbackResult(args, 'upstream_error');
   }
+}
+
+/**
+ * Answer one quick question: the model when allowed, otherwise the labelled
+ * rule-based guidance. Never throws.
+ *
+ * @param args The fixed question, household profile, air snapshot and budget.
+ * @returns The answer, whether the model produced it, and the fallback reason.
+ */
+export async function generateAnswer(args: AnswerArgs): Promise<AnswerResult> {
+  const blocked = await blockedAnswer(args);
+  if (blocked) return blocked;
+
+  const apiKey = readEnv('GEMINI_API_KEY')?.trim() ?? '';
+  return modelAnswer(args, apiKey);
 }

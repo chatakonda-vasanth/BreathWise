@@ -18,8 +18,6 @@ export const languageSchema = z.enum(['en', 'hi', 'te']);
  */
 export const askQuestionSchema = z.enum(ASK_QUESTIONS);
 
-export type AskQuestionValue = z.infer<typeof askQuestionSchema>;
-
 /** Numeric query-string parser: rejects "", "  ", "1e999", "0x10", "abc". */
 const queryNumber = (min: number, max: number) =>
   z
@@ -152,8 +150,6 @@ export const llmPlanSchema = z
   })
   .strict();
 
-export type LlmPlan = z.infer<typeof llmPlanSchema>;
-
 /** Full plan returned by /api/plan (LLM or deterministic fallback). */
 export const planSchema = z
   .strictObject({
@@ -220,8 +216,6 @@ export const llmAnswerSchema = z
     answer: shortText(MAX_PLAN_STRING),
   })
   .strict();
-
-export type LlmAnswer = z.infer<typeof llmAnswerSchema>;
 
 /** One answered quick question, with provenance so the UI can label fallbacks. */
 export const planAnswerSchema = z

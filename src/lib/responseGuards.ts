@@ -97,21 +97,28 @@ function isAirSnapshot(value: unknown): boolean {
   );
 }
 
+/** The NAQI block: value, band, dominant pollutant and the sub-indices. */
+function isNaqiResult(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isFiniteNumber(value.value) &&
+    typeof value.band === 'string' &&
+    NAQI_BANDS.has(value.band) &&
+    typeof value.dominantPollutant === 'string' &&
+    POLLUTANTS.has(value.dominantPollutant) &&
+    isRecord(value.subIndices) &&
+    Object.values(value.subIndices).every(isFiniteNumber)
+  );
+}
+
+/** The derived block: both indices, the severity band and yesterday's change. */
 function isDerived(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  const naqi = value.naqi;
-  if (!isRecord(naqi)) return false;
   return (
     isFiniteNumber(value.usAqi) &&
     typeof value.usBand === 'string' &&
     US_BANDS.has(value.usBand) &&
-    isFiniteNumber(naqi.value) &&
-    typeof naqi.band === 'string' &&
-    NAQI_BANDS.has(naqi.band) &&
-    typeof naqi.dominantPollutant === 'string' &&
-    POLLUTANTS.has(naqi.dominantPollutant) &&
-    isRecord(naqi.subIndices) &&
-    Object.values(naqi.subIndices).every(isFiniteNumber) &&
+    isNaqiResult(value.naqi) &&
     typeof value.severity === 'string' &&
     SEVERITY_BANDS.has(value.severity) &&
     isNumberOrNull(value.changeSinceYesterday)
@@ -191,14 +198,21 @@ function isPlanProvenance(value: Record<string, unknown>): boolean {
   );
 }
 
-function isPlan(value: unknown): boolean {
-  if (!isRecord(value)) return false;
+/** Language, severity and headline: the fields every plan must carry. */
+function isPlanIdentity(value: Record<string, unknown>): boolean {
   return (
     typeof value.language === 'string' &&
     LANGUAGES.has(value.language) &&
     typeof value.severity === 'string' &&
     SEVERITY_BANDS.has(value.severity) &&
-    isNonEmptyString(value.headline) &&
+    isNonEmptyString(value.headline)
+  );
+}
+
+function isPlan(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isPlanIdentity(value) &&
     isPlanMeaning(value.whatThisMeans) &&
     isPlanGuidance(value) &&
     isArrayOf(value.indoorHacks, isRecommendation) &&

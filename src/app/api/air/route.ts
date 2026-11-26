@@ -1,7 +1,8 @@
 import { deriveIndices, getAirSnapshot } from '@/lib/air';
 import { withAirCache } from '@/lib/airCache';
 import { RATE_LIMITS } from '@/lib/constants';
-import { errorResponse, getClientIp, jsonResponse, logEvent } from '@/lib/http';
+import { getClientIp } from '@/lib/clientIp';
+import { errorResponse, jsonResponse, logEvent } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { airQuerySchema } from '@/lib/schemas';
 

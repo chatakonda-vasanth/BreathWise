@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { canonicalIp, checkOrigin, getClientIp, hashIp, readJsonBody } from '@/lib/http';
+import { checkOrigin, isValidOrigin } from '@/lib/http';
+import { canonicalIp, getClientIp, hashIp } from '@/lib/clientIp';
+import { readJsonBody } from '@/lib/requestBody';
 
 const savedOrigin = process.env.APP_ORIGIN;
 
@@ -304,5 +306,45 @@ describe('bounded JSON body reader', () => {
     expect(request.headers.get('content-length')).toBeNull();
     expect(await readJsonBody(request, 8192)).toEqual({ ok: false, reason: 'too_large' });
     expect(cancelled).toBe(true);
+  });
+});
+
+describe('origin checks: proxy and header edge cases', () => {
+  it('rejects a same-site request even when the origin itself matches', () => {
+    const request = new Request('https://app.example/api/plan', {
+      method: 'POST',
+      headers: {
+        origin: 'https://app.example',
+        'sec-fetch-site': 'same-site',
+      },
+    });
+    expect(checkOrigin(request)).toEqual({ ok: false, reason: 'mismatch' });
+  });
+
+  it('trusts the last forwarded host, which is the one a proxy vouched for', () => {
+    const request = new Request('https://app.example/api/plan', {
+      method: 'POST',
+      headers: {
+        origin: 'https://app.example',
+        'x-forwarded-host': 'attacker.example, app.example',
+      },
+    });
+    expect(checkOrigin(request)).toEqual({ ok: true });
+  });
+
+  it('fails closed when the forwarded host is empty entries only', () => {
+    const request = new Request('https://app.example/api/plan', {
+      method: 'POST',
+      headers: { origin: 'https://app.example', 'x-forwarded-host': ' , ' },
+    });
+    expect(checkOrigin(request)).toEqual({ ok: false, reason: 'mismatch' });
+  });
+
+  it('accepts only absolute http(s) origins as configuration', () => {
+    expect(isValidOrigin('https://app.example')).toBe(true);
+    expect(isValidOrigin('http://localhost:3000')).toBe(true);
+    expect(isValidOrigin('mailto:security@example.com')).toBe(false);
+    expect(isValidOrigin('app.example')).toBe(false);
+    expect(isValidOrigin('')).toBe(false);
   });
 });

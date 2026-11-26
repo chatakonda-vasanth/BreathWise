@@ -56,6 +56,11 @@ export function WithWithoutCard({
 
   const { labels } = comparison;
   const estimate = `(${labels.roughEstimate})`;
+  const rows = [
+    { label: labels.without, value: comparison.baseline },
+    { label: labels.with, value: comparison.withChanges },
+    { label: labels.outdoors, value: comparison.outdoorWithMask },
+  ];
 
   return (
     <section
@@ -68,33 +73,17 @@ export function WithWithoutCard({
       <table className="mt-2 w-full text-sm">
         <caption className="sr-only">{labels.title}</caption>
         <tbody>
-          <tr className="align-top">
-            <th scope="row" className="py-1 pr-3 text-left font-semibold">
-              {labels.without}
-            </th>
-            <td className="py-1 tabular-nums">
-              {comparison.baseline} {labels.unit}{' '}
-              <span className="hint font-normal">{estimate}</span>
-            </td>
-          </tr>
-          <tr className="align-top">
-            <th scope="row" className="py-1 pr-3 text-left font-semibold">
-              {labels.with}
-            </th>
-            <td className="py-1 tabular-nums">
-              {comparison.withChanges} {labels.unit}{' '}
-              <span className="hint font-normal">{estimate}</span>
-            </td>
-          </tr>
-          <tr className="align-top">
-            <th scope="row" className="py-1 pr-3 text-left font-semibold">
-              {labels.outdoors}
-            </th>
-            <td className="py-1 tabular-nums">
-              {comparison.outdoorWithMask} {labels.unit}{' '}
-              <span className="hint font-normal">{estimate}</span>
-            </td>
-          </tr>
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <th scope="row" className="py-1 pr-3 text-left font-semibold">
+                {row.label}
+              </th>
+              <td className="py-1 tabular-nums">
+                {row.value} {labels.unit}{' '}
+                <span className="hint font-normal">{estimate}</span>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 

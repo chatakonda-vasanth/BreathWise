@@ -183,31 +183,30 @@ function round1(value: number): number {
  * `null` when PM2.5 is unavailable: the app must not show an impact number it
  * cannot ground in data.
  */
-export function compareWithWithout(args: {
-  pm25: number | null | undefined;
-  profile?: Partial<Profile> | null;
-  language: Language;
-}): ImpactComparison | null {
-  const { pm25, language } = args;
-  if (typeof pm25 !== 'number' || !Number.isFinite(pm25) || pm25 < 0) return null;
+type StepCopy = (typeof STEP_COPY)[Language];
 
-  const profile = args.profile ?? {};
-  const budget = profile.budget ?? DEFAULTS.budget;
-  const windows = profile.windows ?? DEFAULTS.windows;
-  const copy = STEP_COPY[language];
+/** Reduction for the room-air step, chosen by what the household can spend. */
+function purifierPct(budget: NonNullable<Profile['budget']>): number {
+  return budget === 'low' ? IMPACT_FACTORS.diyBox : IMPACT_FACTORS.hepa;
+}
 
-  const purifierPct = budget === 'low' ? IMPACT_FACTORS.diyBox : IMPACT_FACTORS.hepa;
-  const sealPct =
-    windows === 'single'
-      ? IMPACT_FACTORS.sealSingle
-      : windows === 'sealed'
-        ? IMPACT_FACTORS.sealSealed
-        : IMPACT_FACTORS.sealUnknown;
+/** Sealing benefit depends on the glazing already fitted. */
+function sealPct(windows: NonNullable<Profile['windows']>): number {
+  if (windows === 'single') return IMPACT_FACTORS.sealSingle;
+  if (windows === 'sealed') return IMPACT_FACTORS.sealSealed;
+  return IMPACT_FACTORS.sealUnknown;
+}
 
-  const steps: ImpactStep[] = [
+/** The four documented steps, with labels in the reader's language. */
+function buildSteps(
+  budget: NonNullable<Profile['budget']>,
+  windows: NonNullable<Profile['windows']>,
+  copy: StepCopy,
+): ImpactStep[] {
+  return [
     {
       id: 'purifier',
-      reductionPct: purifierPct,
+      reductionPct: purifierPct(budget),
       appliesTo: 'room',
       label:
         budget === 'low'
@@ -217,7 +216,7 @@ export function compareWithWithout(args: {
     },
     {
       id: 'sealGaps',
-      reductionPct: sealPct,
+      reductionPct: sealPct(windows),
       appliesTo: 'room',
       label: copy.sealGaps.label,
       assumption: copy.sealGaps.assumption,
@@ -237,17 +236,43 @@ export function compareWithWithout(args: {
       assumption: copy.mask.assumption,
     },
   ];
+}
 
-  const roomFactor = steps
+/** Multiplicative remainder after the indoor steps. */
+function roomFactor(steps: ImpactStep[]): number {
+  return steps
     .filter((step) => step.appliesTo === 'room')
     .reduce((factor, step) => factor * (1 - step.reductionPct / 100), 1);
+}
+
+/**
+ * Deterministic with/without comparison.
+ *
+ * `null` when PM2.5 is unavailable: the app must not show an impact number it
+ * cannot ground in data.
+ *
+ * @param args Outdoor PM2.5, optional household profile and the language.
+ * @returns The baseline, both modelled endpoints and the labelled steps.
+ */
+export function compareWithWithout(args: {
+  pm25: number | null | undefined;
+  profile?: Partial<Profile> | null;
+  language: Language;
+}): ImpactComparison | null {
+  const { pm25, language } = args;
+  if (typeof pm25 !== 'number' || !Number.isFinite(pm25) || pm25 < 0) return null;
+
+  const profile = args.profile ?? {};
+  const budget = profile.budget ?? DEFAULTS.budget;
+  const windows = profile.windows ?? DEFAULTS.windows;
+  const steps = buildSteps(budget, windows, STEP_COPY[language]);
 
   const mask = steps.find((step) => step.id === 'mask');
   const maskFactor = mask ? 1 - mask.reductionPct / 100 : 1;
 
   return {
     baseline: round1(pm25),
-    withChanges: round1(Math.max(0, pm25 * roomFactor)),
+    withChanges: round1(Math.max(0, pm25 * roomFactor(steps))),
     outdoorWithMask: round1(Math.max(0, pm25 * maskFactor)),
     steps,
     labels: LABELS[language],

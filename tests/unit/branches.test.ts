@@ -8,7 +8,7 @@ import {
 } from '@/lib/rateLimit';
 import { DEFAULT_GEMINI_MODEL } from '@/lib/constants';
 import { callGemini, extractText, getModelId, parseJsonText } from '@/lib/gemini';
-import { readJsonBody } from '@/lib/http';
+import { readJsonBody } from '@/lib/requestBody';
 import { __clearAirCache, getAirSnapshot, UpstreamError } from '@/lib/air';
 import { deriveIndices } from '@/lib/indices';
 import { buildUserPrompt } from '@/lib/prompt';

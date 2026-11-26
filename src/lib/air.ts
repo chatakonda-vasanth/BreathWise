@@ -169,24 +169,27 @@ export function __clearAirCache(): void {
  * past 24 h, next 24 h) for rounded coordinates. Throws UpstreamError on any
  * failure — callers decide whether to fall back to sample data.
  */
-export async function getAirSnapshot(lat: number, lon: number): Promise<AirSnapshot> {
-  const rounded = normaliseCoords(lat, lon);
-  if (!rounded) throw new UpstreamError();
+type AirPayload = z.infer<typeof airResponseSchema>;
 
-  const key = coordCacheKey(rounded.lat, rounded.lon);
+/** A cached snapshot for this coordinate key, when it is still fresh. */
+function readCache(key: string): AirSnapshot | null {
   const cached = airCache.get(key);
-  if (cached && cached.expires > Date.now()) return cached.value;
+  return cached && cached.expires > Date.now() ? cached.value : null;
+}
 
-  const raw = await fetchJson(buildAirUrl(rounded.lat, rounded.lon));
-  const parsed = airResponseSchema.safeParse(raw);
-  if (!parsed.success) throw new UpstreamError();
+/** Store a snapshot and drop expired entries once the cache grows large. */
+function writeCache(key: string, snapshot: AirSnapshot): void {
+  airCache.set(key, { expires: Date.now() + AIR_CACHE_TTL_MS, value: snapshot });
+  if (airCache.size <= 500) return;
+  const now = Date.now();
+  for (const [cacheKey, entry] of airCache) {
+    if (entry.expires <= now) airCache.delete(cacheKey);
+  }
+}
 
-  const { timezone, hourly, current } = parsed.data;
-  const currentTime = current?.time ?? hourly.time[0];
-  if (!currentTime) throw new UpstreamError();
-
-  const hourKey = currentTime.slice(0, 13);
-  const points: AirPoint[] = hourly.time.map((time, index) =>
+/** Hourly points from the upstream arrays, index-aligned. */
+function hourlyPoints(hourly: AirPayload['hourly']): AirPoint[] {
+  return hourly.time.map((time, index) =>
     toPoint({
       time,
       pm25: hourly.pm2_5[index],
@@ -196,10 +199,26 @@ export async function getAirSnapshot(lat: number, lon: number): Promise<AirSnaps
       usAqi: hourly.us_aqi[index],
     }),
   );
+}
 
-  let currentIndex = points.findIndex((point) => point.time.slice(0, 13) === hourKey);
-  if (currentIndex < 0) currentIndex = Math.max(0, points.length - 25);
+/** Index of the current hour, or the last complete day when it is absent. */
+function currentIndexFor(points: AirPoint[], hourKey: string): number {
+  const found = points.findIndex((point) => point.time.slice(0, 13) === hourKey);
+  return found >= 0 ? found : Math.max(0, points.length - 25);
+}
 
+/** Build the snapshot shape the app consumes from a validated payload. */
+function toSnapshot(
+  payload: AirPayload,
+  rounded: { lat: number; lon: number },
+): AirSnapshot {
+  const { timezone, hourly, current } = payload;
+  const currentTime = current?.time ?? hourly.time[0];
+  if (!currentTime) throw new UpstreamError();
+
+  const points = hourlyPoints(hourly);
+  const currentIndex = currentIndexFor(points, currentTime.slice(0, 13));
+  const fallbackPoint = points[currentIndex];
   const currentPoint = current
     ? toPoint({
         time: current.time,
@@ -209,30 +228,44 @@ export async function getAirSnapshot(lat: number, lon: number): Promise<AirSnaps
         o3: current.ozone,
         usAqi: current.us_aqi,
       })
-    : (points[currentIndex] as AirPoint);
+    : fallbackPoint;
+  if (!currentPoint) throw new UpstreamError();
 
-  const history = points.slice(Math.max(0, currentIndex - 24), currentIndex);
-  const forecast = points.slice(currentIndex, currentIndex + 24);
-
-  const snapshot: AirSnapshot = {
+  return {
     lat: rounded.lat,
     lon: rounded.lon,
     timezone: timezone.replace(/[^A-Za-z0-9/_+\-]/g, '').slice(0, 60) || 'UTC',
     fetchedAt: new Date().toISOString(),
     current: currentPoint,
-    history,
-    forecast,
+    history: points.slice(Math.max(0, currentIndex - 24), currentIndex),
+    forecast: points.slice(currentIndex, currentIndex + 24),
     source: AIR_SOURCE_LABEL,
     isSample: false,
   };
+}
 
-  airCache.set(key, { expires: Date.now() + AIR_CACHE_TTL_MS, value: snapshot });
-  if (airCache.size > 500) {
-    const now = Date.now();
-    for (const [cacheKey, entry] of airCache) {
-      if (entry.expires <= now) airCache.delete(cacheKey);
-    }
-  }
+/**
+ * Fetch and normalise an air snapshot (current, past 24 h, next 24 h) for
+ * rounded coordinates.
+ *
+ * @param lat Latitude; rounded and validated before any request is made.
+ * @param lon Longitude; rounded and validated before any request is made.
+ * @throws {UpstreamError} On invalid coordinates or any upstream failure.
+ */
+export async function getAirSnapshot(lat: number, lon: number): Promise<AirSnapshot> {
+  const rounded = normaliseCoords(lat, lon);
+  if (!rounded) throw new UpstreamError();
+
+  const key = coordCacheKey(rounded.lat, rounded.lon);
+  const cached = readCache(key);
+  if (cached) return cached;
+
+  const raw = await fetchJson(buildAirUrl(rounded.lat, rounded.lon));
+  const parsed = airResponseSchema.safeParse(raw);
+  if (!parsed.success) throw new UpstreamError();
+
+  const snapshot = toSnapshot(parsed.data, rounded);
+  writeCache(key, snapshot);
   return snapshot;
 }
 

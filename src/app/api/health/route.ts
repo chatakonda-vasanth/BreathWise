@@ -1,5 +1,6 @@
 import { RATE_LIMITS } from '@/lib/constants';
-import { errorResponse, getClientIp, jsonResponse, logEvent } from '@/lib/http';
+import { getClientIp } from '@/lib/clientIp';
+import { errorResponse, jsonResponse, logEvent } from '@/lib/http';
 import { enforceRateLimit } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';

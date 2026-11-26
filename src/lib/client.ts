@@ -58,17 +58,25 @@ function validate<T>(guard: (value: unknown) => value is T, value: unknown): T {
   return value;
 }
 
+/** Air snapshot for rounded coordinates; throws ApiError on any failure. */
 export async function fetchAir(lat: number, lon: number) {
   const url = `/api/air?lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`;
   const payload = await requestJson(url);
   return validate(isAirResponse, payload);
 }
 
+/** Place matches for a query, at most 20; throws ApiError on failure. */
 export async function searchCities(query: string) {
   const payload = await requestJson(`/api/geocode?q=${encodeURIComponent(query)}`);
   return validate(isGeocodeResponse, payload).results;
 }
 
+/**
+ * Generate (or reuse) a plan for a profile and place.
+ *
+ * @param input Validated profile, rounded coordinates and the sample flag.
+ * @param signal Lets the UI cancel a slow generation.
+ */
 export async function requestPlan(
   input: {
     profile: Profile;

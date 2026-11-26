@@ -2,7 +2,6 @@
 
 export const APP_NAME = 'Urban Air Quality Assistant';
 export const AIR_SOURCE_LABEL = 'Open-Meteo Air Quality (CAMS)';
-export const AIR_SOURCE_URL = 'https://open-meteo.com/';
 
 /** Hard-coded upstream hosts. No user-supplied URL is ever fetched (SSRF guard). */
 export const AIR_QUALITY_HOST = 'https://air-quality-api.open-meteo.com';
@@ -68,20 +67,6 @@ export const RATE_LIMITS = {
   health: { limit: 60, windowMs: 60_000 },
 } as const;
 
-/**
- * Upstash Redis free tier, per upstash.com/docs/redis/overall/pricing and
- * /billing (read November 2026): 500,000 commands per month, 10,000 commands per
- * second, 256 MB, one database. Commands beyond the monthly allowance throw,
- * which this app treats as "limiter unreachable" and fails closed on.
- *
- * A plan request costs at most two sliding-window commands plus two daily-cap
- * commands (INCR, and EXPIRE on the first request of the day); an air or
- * geocode request costs at most two. The README works through the monthly
- * budget under normal use.
- */
-export const UPSTASH_FREE_MONTHLY_COMMANDS = 500_000;
-export const UPSTASH_COMMANDS_PER_PLAN_REQUEST = 4;
-export const UPSTASH_COMMANDS_PER_READ_REQUEST = 2;
 
 /** Default daily LLM cap when DAILY_LLM_CAP is unset/invalid. */
 export const DEFAULT_DAILY_LLM_CAP = 200;

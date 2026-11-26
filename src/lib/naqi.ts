@@ -11,15 +11,6 @@ import type { NaqiBand, SeverityBand } from './types';
 
 type Breakpoint = readonly [number, number, number, number];
 
-const SUB_INDEX_BANDS: readonly Breakpoint[] = [
-  [0, 50, 0, 50],
-  [51, 100, 51, 100],
-  [101, 200, 101, 200],
-  [201, 300, 201, 300],
-  [301, 400, 301, 400],
-  [401, 500, 401, 500],
-];
-
 /** [cLow, cHigh, iLow, iHigh] per CPCB 24-hour breakpoint tables. */
 const PM25_BREAKPOINTS: readonly Breakpoint[] = [
   [0, 30, 0, 50],
@@ -170,6 +161,3 @@ export function naqiBandToSeverity(band: NaqiBand): SeverityBand {
       return 'hazardous';
   }
 }
-
-/** Exposed for tests: the raw CPCB sub-index band table. */
-export const NAQI_SUB_INDEX_BANDS = SUB_INDEX_BANDS;

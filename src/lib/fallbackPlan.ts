@@ -128,6 +128,14 @@ export interface BuildFallbackArgs {
   reason?: FallbackReason;
 }
 
+/**
+ * Safety notice for a band, or null when none is needed.
+ *
+ * @param language Reader's language.
+ * @param severity App severity band; hazardous always warns.
+ * @param naqiBand India NAQI band; `severe` also always warns.
+ * @param symptoms Whether the household reported symptoms today.
+ */
 export function medicalAlertFor(
   language: Language,
   severity: SeverityBand,
@@ -141,6 +149,13 @@ export function medicalAlertFor(
   return null;
 }
 
+/**
+ * Build the complete, reviewed rule-based plan for a snapshot and profile.
+ *
+ * @param args Air snapshot, household profile, language, band and the reason
+ * the model was not used (recorded as `fallbackReason`).
+ * @returns A plan that is safe to show on its own, with no model call.
+ */
 export function buildFallbackPlan(args: BuildFallbackArgs): Plan {
   const { snapshot, profile, language, severity, naqiBand, reason } = args;
   const copy = BAND_COPY[language][severity];

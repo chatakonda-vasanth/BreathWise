@@ -1,11 +1,13 @@
 'use client';
 
-import type { AirResponse } from '@/lib/apiSchemas';
-import { BAND_COLOURS } from '@/lib/aqi';
-import { NAQI_LABELS, SEVERITY_LABELS, US_BAND_LABELS, t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
 import dynamic from 'next/dynamic';
-import { BandChip, Banner, SectionHeading } from './ui';
+import type { AirResponse } from '@/lib/apiSchemas';
+import { t } from '@/lib/i18n';
+import type { Language } from '@/lib/types';
+import { AirControls } from './air/air-controls';
+import { AirSummary } from './air/air-summary';
+import { PollutantGrid } from './air/pollutant-grid';
+import { Banner } from './ui';
 
 /**
  * The chart is the heaviest thing on the air screen and it is not needed to act
@@ -29,13 +31,26 @@ interface AirPanelProps {
   onUseLive: () => void;
 }
 
-function fmt(value: number | null, digits = 0): string {
-  return value === null || Number.isNaN(value) ? '—' : value.toFixed(digits);
+/** The lazily loaded chart card, with its own heading. */
+function ChartCard({ data, lang }: { data: AirResponse; lang: Language }) {
+  return (
+    <>
+      <h3 className="text-base font-bold">
+        {t(lang, 'history')} / {t(lang, 'forecast')}
+      </h3>
+      <TrendChart
+        history={data.air.history}
+        forecast={data.air.forecast}
+        label={`${t(lang, 'history')} + ${t(lang, 'forecast')}`}
+        summary={`${t(lang, 'usAqi')} ${Math.round(data.indices.usAqi)}`}
+      />
+    </>
+  );
 }
 
 /**
- * Air-quality screen: current values,
- * pollutant cards, the two indices and the lazy-loaded trend chart.
+ * Air-quality screen: current values, pollutant cards, both indices and the
+ * lazy-loaded trend chart.
  */
 export function AirPanel({
   data,
@@ -45,150 +60,35 @@ export function AirPanel({
   onUseSample,
   onUseLive,
 }: AirPanelProps) {
-  const { air, indices } = data;
-  const severity = indices.severity;
-  const colour = BAND_COLOURS[severity];
-  const severityLabel = SEVERITY_LABELS[lang][severity];
-  const usLabel = US_BAND_LABELS[lang][indices.usBand];
-  const naqiLabel = NAQI_LABELS[lang][indices.naqi.band];
-
-  const pollutants: { key: string; label: string; value: number | null }[] = [
-    { key: 'pm25', label: t(lang, 'pm25'), value: air.current.pm25 },
-    { key: 'pm10', label: t(lang, 'pm10'), value: air.current.pm10 },
-    { key: 'no2', label: t(lang, 'no2'), value: air.current.no2 },
-    { key: 'o3', label: t(lang, 'o3'), value: air.current.o3 },
-  ];
-
-  const change = indices.changeSinceYesterday;
+  const severity = data.indices.severity;
 
   return (
     <section aria-labelledby="air-heading" data-band={severity}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <SectionHeading id="air-heading">{t(lang, 'airTitle')}</SectionHeading>
-        <div className="flex flex-wrap gap-2 no-print">
-          <button
-            type="button"
-            className="btn text-sm"
-            onClick={onToggleLowBandwidth}
-            aria-pressed={lowBandwidth}
-          >
-            {lowBandwidth ? t(lang, 'lowBandwidthOff') : t(lang, 'lowBandwidthOn')}
-          </button>
-          {air.isSample ? (
-            <button type="button" className="btn text-sm" onClick={onUseLive}>
-              {t(lang, 'sampleOff')}
-            </button>
-          ) : (
-            <button type="button" className="btn text-sm" onClick={onUseSample}>
-              {t(lang, 'sampleOn')}
-            </button>
-          )}
-        </div>
-      </div>
+      <AirControls
+        lang={lang}
+        lowBandwidth={lowBandwidth}
+        isSample={data.air.isSample}
+        onToggleLowBandwidth={onToggleLowBandwidth}
+        onUseSample={onUseSample}
+        onUseLive={onUseLive}
+      />
 
-      {air.isSample ? (
+      {data.air.isSample ? (
         <Banner live="polite" tone="warn" title={t(lang, 'sampleBanner')}>
           <p>{t(lang, 'sampleOn')}</p>
         </Banner>
       ) : null}
 
-      <div className="card mt-3">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
-              {t(lang, 'usAqi')}
-            </p>
-            <p className="band-colour text-6xl font-bold leading-none tabular-nums sm:text-7xl">
-              {Math.round(indices.usAqi)}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <BandChip
-                band={severity}
-                label={`${severityLabel} (${usLabel})`}
-                glyph={colour.glyph}
-              />
-            </div>
-            {typeof change === 'number' ? (
-              <p className="hint mt-2">
-                {t(lang, 'changeSinceYesterday')}:{' '}
-                <strong className="tabular-nums">
-                  {change > 0 ? '+' : ''}
-                  {change} US AQI
-                </strong>
-              </p>
-            ) : null}
-          </div>
+      <AirSummary data={data} lang={lang} />
+      <PollutantGrid air={data.air} lang={lang} />
 
-          <div className="min-w-[180px]">
-            <p className="text-sm font-semibold uppercase tracking-wide opacity-80">
-              {t(lang, 'naqi')}
-            </p>
-            <p className="band-colour text-4xl font-bold leading-none tabular-nums">
-              {Math.round(indices.naqi.value)}
-            </p>
-            <p className="mt-1 text-sm font-semibold">{naqiLabel}</p>
-            <p className="hint mt-1">
-              {t(lang, 'pm25')} · {indices.naqi.dominantPollutant.toUpperCase()}
-            </p>
-          </div>
-        </div>
-
-        <p className="hint mt-3">{t(lang, 'cpcbNote')}</p>
-
-        <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-          <div className="flex gap-2">
-            <dt className="opacity-75">{t(lang, 'source')}:</dt>
-            <dd className="font-semibold">{air.source}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="opacity-75">{t(lang, 'updated')}:</dt>
-            <dd className="font-semibold tabular-nums">
-              <time dateTime={air.fetchedAt}>{air.current.time}</time> ({air.timezone})
-            </dd>
-          </div>
-        </dl>
-
-        {air.isSample ? (
-          <p className="mt-2 text-xs font-semibold uppercase tracking-wide">
-            {t(lang, 'sampleLabel')}
-          </p>
-        ) : null}
-      </div>
-
-      <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {pollutants.map((pollutant) => (
-          <li key={pollutant.key} className="card-tight">
-            <p className="text-sm font-semibold">{pollutant.label}</p>
-            <p className="text-2xl font-bold tabular-nums">{fmt(pollutant.value, 1)}</p>
-            <p className="hint">µg/m³</p>
-          </li>
-        ))}
-      </ul>
-
-      {!lowBandwidth ? (
-        <div className="card mt-3">
-          <TrendChartLazy data={data} lang={lang} />
-        </div>
-      ) : (
+      {lowBandwidth ? (
         <p className="hint mt-3">{t(lang, 'chartHidden')}</p>
+      ) : (
+        <div className="card mt-3">
+          <ChartCard data={data} lang={lang} />
+        </div>
       )}
     </section>
-  );
-}
-
-function TrendChartLazy({ data, lang }: { data: AirResponse; lang: Language }) {
-  const { air } = data;
-  return (
-    <>
-      <h3 className="text-base font-bold">
-        {t(lang, 'history')} / {t(lang, 'forecast')}
-      </h3>
-      <TrendChart
-        history={air.history}
-        forecast={air.forecast}
-        label={`${t(lang, 'history')} + ${t(lang, 'forecast')}`}
-        summary={`${t(lang, 'usAqi')} ${Math.round(data.indices.usAqi)}`}
-      />
-    </>
   );
 }

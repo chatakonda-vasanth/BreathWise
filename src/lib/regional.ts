@@ -47,9 +47,14 @@ const LANGUAGE_NOTE: Record<Language, { regional: string; assumption: string }> 
 };
 
 /** Coarse bounding boxes over South Asia. Coordinates only, never a name. */
+/** True when the rounded point lies inside the South Asia bounding box. */
+function inSouthAsia(lat: number, lon: number): boolean {
+  return lat >= 5 && lat <= 37 && lon >= 60 && lon <= 98;
+}
+
 export function coarseRegion(lat: number, lon: number): RegionId {
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'other';
-  if (lat < 5 || lat > 37 || lon < 60 || lon > 98) return 'other';
+  if (!inSouthAsia(lat, lon)) return 'other';
   if (lat >= 23) return 'north';
   if (lon >= 88) return 'east';
   if (lat < 15) return 'south';
@@ -174,6 +179,15 @@ function seasonalNotes(
   return notes;
 }
 
+/**
+ * Coarse regional context for rounded coordinates and a date.
+ *
+ * @param lat Rounded latitude; never sent anywhere.
+ * @param lon Rounded longitude; never sent anywhere.
+ * @param date Date whose UTC month selects the season.
+ * @param language Reader's language for the notes.
+ * @returns The region, season, flags and the localised notes.
+ */
 export function regionalContext(
   lat: number,
   lon: number,

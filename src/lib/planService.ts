@@ -6,16 +6,14 @@ import {
   LLM_TOTAL_BUDGET_MS,
 } from './constants';
 import { readEnv } from './env';
-import { medicalAlertFor, buildFallbackPlan, type FallbackReason } from './fallbackPlan';
-import { LlmError, callGemini, parseJsonText } from './gemini';
-import { sanitizePlan, looksLikeMedicalAdvice, scriptMatches } from './sanitize';
-import { llmPlanSchema } from './schemas';
-import { SYSTEM_INSTRUCTION, buildUserPrompt } from './prompt';
-import { consumeDailyLlmQuota } from './rateLimit';
-import type { AirSnapshot, Language, Plan } from './types';
-import type { Profile } from './schemas';
+import { buildFallbackPlan, type FallbackReason } from './fallbackPlan';
+import { LlmError, callGemini } from './gemini';
 import type { NaqiResult } from './naqi';
-import type { SeverityBand } from './types';
+import { validateModelOutput } from './planValidation';
+import { buildUserPrompt, SYSTEM_INSTRUCTION } from './prompt';
+import { consumeDailyLlmQuota } from './rateLimit';
+import type { Profile } from './schemas';
+import type { AirSnapshot, Language, Plan, SeverityBand } from './types';
 
 /**
  * Plan orchestration: LLM with strict validation and a deterministic fallback
@@ -44,6 +42,7 @@ export interface GeneratePlanArgs {
   fallbackOnly?: FallbackReason;
 }
 
+/** Daily model-generation cap from `DAILY_LLM_CAP`, or the default. */
 export function dailyCap(): number {
   const parsed = Number(readEnv('DAILY_LLM_CAP') ?? '');
   return Number.isFinite(parsed) && parsed > 0
@@ -52,9 +51,8 @@ export function dailyCap(): number {
 }
 
 /**
- * Kill switch and missing-key check for the
- * AI path. When true no model call is attempted and the labelled rule-based
- * plan is returned.
+ * Kill switch and missing-key check for the AI path. When true no model call is
+ * attempted and the labelled rule-based plan is returned.
  */
 export function llmDisabled(): boolean {
   return readEnv('LLM_DISABLED')?.trim().toLowerCase() === 'true';
@@ -82,102 +80,79 @@ function fallback(args: GeneratePlanArgs, reason: FallbackReason): Plan {
   });
 }
 
-interface ValidationOutcome {
-  ok: boolean;
-  reason?: FallbackReason;
-  plan?: Plan;
-}
-
-function validateModelOutput(raw: string, args: GeneratePlanArgs): ValidationOutcome {
-  let parsed: unknown;
-  try {
-    parsed = parseJsonText(raw);
-  } catch {
-    return { ok: false, reason: 'invalid_output' };
-  }
-
-  const result = llmPlanSchema.safeParse(parsed);
-  if (!result.success) return { ok: false, reason: 'invalid_output' };
-
-  const data = result.data;
-  const joined = [
-    data.headline,
-    data.whatThisMeans,
-    data.cigaretteEquivalentNote,
-    data.bestTimeToGoOut,
-    data.maskGuidance,
-    data.schoolAndCommute,
-    data.exerciseTiming,
-    ...data.indoorHacks.flatMap((item) => [
-      item.title,
-      item.detail,
-      item.impact.mechanism,
-    ]),
-    ...data.sustainableAlternatives.flatMap((item) => [
-      item.title,
-      item.detail,
-      item.impact.mechanism,
-    ]),
-  ].join('\n');
-
-  // Medical safety: refuse dosage/diagnosis content regardless of the prompt.
-  if (looksLikeMedicalAdvice(joined)) return { ok: false, reason: 'medical_content' };
-
-  // Language contract: Hindi/Telugu output must actually be in that script.
-  const languageSample = [
-    data.headline,
-    data.whatThisMeans,
-    data.bestTimeToGoOut,
-    ...data.indoorHacks.map((item) => item.detail),
-  ].join(' ');
-  if (!scriptMatches(args.language, languageSample)) {
-    return { ok: false, reason: 'lang_mismatch' };
-  }
-
-  const plan: Plan = {
-    language: args.language,
-    severity: args.severity,
-    headline: data.headline,
-    whatThisMeans: {
-      text: data.whatThisMeans,
-      cigaretteEquivalent: data.cigaretteEquivalentNote,
-      assumption:
-        'Model-stated: cigarette-equivalence assumes about 22 µg/m³ of PM2.5 equals one cigarette a day, a rough approximation only.',
-    },
-    bestTimeToGoOut: data.bestTimeToGoOut,
-    maskGuidance: data.maskGuidance,
-    schoolAndCommute: data.schoolAndCommute,
-    exerciseTiming: data.exerciseTiming,
-    indoorHacks: data.indoorHacks,
-    sustainableAlternatives: data.sustainableAlternatives,
-    // Never trust the model on this: recomputed from our own severity data.
-    medicalAlert: medicalAlertFor(
-      args.language,
-      args.severity,
-      args.naqi.band,
-      args.profile.symptoms,
-    ),
-    generatedBy: 'llm',
-  };
-
-  return { ok: true, plan: sanitizePlan(plan) };
-}
-
+/** A finished plan with the provenance the UI labels. */
 export interface PlanResult {
   plan: Plan;
   usedLlm: boolean;
   reason?: FallbackReason;
 }
 
+/** The labelled rule-based answer, with no model call. */
+function fallbackResult(args: GeneratePlanArgs, reason: FallbackReason): PlanResult {
+  return { plan: fallback(args, reason), usedLlm: false, reason };
+}
+
+interface PreflightBlocked {
+  done: PlanResult;
+}
+
+interface PreflightReady {
+  apiKey: string;
+}
+
+type Preflight = PreflightBlocked | PreflightReady;
+
 /**
- * Produce a plan for a snapshot, profile
- * and severity: the model when allowed, always with a deterministic fallback.
+ * Every reason not to call the model, decided before any request is built.
+ *
  * Assumption: the fallback is complete guidance on its own, so an AI outage
  * degrades detail, never safety.
  */
-interface LlmFailure {
+async function preflight(args: GeneratePlanArgs): Promise<Preflight> {
+  if (args.fallbackOnly) return { done: fallbackResult(args, args.fallbackOnly) };
+  if (llmDisabled()) return { done: fallbackResult(args, 'llm_disabled') };
+
+  const apiKey = readEnv('GEMINI_API_KEY')?.trim();
+  if (!apiKey) return { done: fallbackResult(args, 'no_api_key') };
+
+  const quota = await consumeDailyLlmQuota(dailyCap());
+  if (!quota.allowed) {
+    const reason: FallbackReason =
+      quota.reason === 'daily_cap' ? 'daily_cap' : 'quota_unavailable';
+    return { done: fallbackResult(args, reason) };
+  }
+
+  return { apiKey };
+}
+
+/** The wall-clock budget every attempt shares, and the retry thresholds. */
+interface Budget {
+  deadline: number;
+  retryThresholdMs: number;
+  minRetryMs: number;
+  attemptCapMs: number;
+}
+
+function budgetFor(args: GeneratePlanArgs): Budget {
+  const budgetMs = Math.max(
+    0,
+    Math.min(args.budgetMs ?? LLM_TOTAL_BUDGET_MS, LLM_TOTAL_BUDGET_MS),
+  );
+  return {
+    deadline: Date.now() + budgetMs,
+    retryThresholdMs: budgetMs / 2,
+    // A retry needs a meaningful slice of time left; the floor never eats more
+    // than a quarter of a short budget, so a smaller configured budget still
+    // retries proportionally instead of never.
+    minRetryMs: Math.min(LLM_RETRY_MIN_REMAINING_MS, budgetMs / 4),
+    attemptCapMs: attemptTimeoutMs(),
+  };
+}
+
+interface AttemptResult {
+  /** Set when the model produced a usable plan. */
+  plan?: Plan;
   reason: FallbackReason;
-  /** Whether asking again could plausibly succeed. */
   retryable: boolean;
 }
 
@@ -188,7 +163,7 @@ interface LlmFailure {
  * limit will not improve by immediately asking again, and a retry after a
  * timeout would hold the request for twice the LLM budget.
  */
-function failureFromError(error: unknown): LlmFailure {
+function failureFromError(error: unknown): AttemptResult {
   if (!(error instanceof LlmError)) return { reason: 'unknown', retryable: true };
   switch (error.code) {
     case 'timeout':
@@ -200,13 +175,6 @@ function failureFromError(error: unknown): LlmFailure {
     case 'upstream_error':
       return { reason: 'upstream_error', retryable: true };
   }
-}
-
-interface AttemptResult {
-  /** Set when the model produced a usable plan. */
-  plan?: Plan;
-  reason: FallbackReason;
-  retryable: boolean;
 }
 
 /**
@@ -228,86 +196,60 @@ async function attemptOnce(params: {
       apiKey: params.apiKey,
       timeoutMs: params.timeoutMs,
     });
-    const outcome = validateModelOutput(raw, params.args);
-    if (outcome.ok && outcome.plan)
+    const outcome = validateModelOutput(raw, {
+      language: params.args.language,
+      severity: params.args.severity,
+      naqiBand: params.args.naqi.band,
+      symptoms: params.args.profile.symptoms,
+    });
+    if (outcome.ok && outcome.plan) {
       return { plan: outcome.plan, reason: 'unknown', retryable: true };
+    }
     const reason = outcome.reason ?? 'invalid_output';
     const permanent = reason === 'medical_content' || reason === 'lang_mismatch';
     return { reason, retryable: !permanent };
   } catch (error) {
-    return { ...failureFromError(error) };
+    return failureFromError(error);
   }
 }
 
-export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> {
-  if (args.fallbackOnly) {
-    return {
-      plan: fallback(args, args.fallbackOnly),
-      usedLlm: false,
-      reason: args.fallbackOnly,
-    };
-  }
-
-  if (llmDisabled()) {
-    return {
-      plan: fallback(args, 'llm_disabled'),
-      usedLlm: false,
-      reason: 'llm_disabled',
-    };
-  }
-
-  const apiKey = readEnv('GEMINI_API_KEY')?.trim();
-  if (!apiKey) {
-    return { plan: fallback(args, 'no_api_key'), usedLlm: false, reason: 'no_api_key' };
-  }
-
-  const quota = await consumeDailyLlmQuota(dailyCap());
-  if (!quota.allowed) {
-    const reason: FallbackReason =
-      quota.reason === 'daily_cap' ? 'daily_cap' : 'quota_unavailable';
-    return { plan: fallback(args, reason), usedLlm: false, reason };
-  }
-
-  const user = buildUserPrompt({
+/** Prompt plus user turn, built once and reused by every attempt. */
+function userTurn(args: GeneratePlanArgs): string {
+  return buildUserPrompt({
     profile: args.profile,
     snapshot: args.snapshot,
     derived: args.derived,
     language: args.language,
     severity: args.severity,
   });
+}
 
-  // Wall-clock budget shared by every attempt. No attempt is started that could
-  // run past the deadline, and a first attempt slower than half the budget ends
-  // the loop: two attempts would no longer both fit, so the caller gets the
-  // labelled fallback instead of a platform timeout.
-  const budgetMs = Math.max(
-    0,
-    Math.min(args.budgetMs ?? LLM_TOTAL_BUDGET_MS, LLM_TOTAL_BUDGET_MS),
-  );
-  const deadline = Date.now() + budgetMs;
-  const retryThresholdMs = budgetMs / 2;
-  // A retry needs a meaningful slice of time left; the floor never eats more
-  // than a quarter of a short budget, so a smaller configured budget still
-  // retries proportionally instead of never.
-  const minRetryMs = Math.min(LLM_RETRY_MIN_REMAINING_MS, budgetMs / 4);
-  const attemptCapMs = attemptTimeoutMs();
-
+/**
+ * Try the model up to twice inside the shared budget, then fall back.
+ *
+ * No attempt is started that could run past the deadline, and a first attempt
+ * slower than half the budget ends the loop: two attempts would no longer both
+ * fit, so the caller gets the labelled fallback instead of a platform timeout.
+ */
+async function runAttempts(args: GeneratePlanArgs, apiKey: string): Promise<PlanResult> {
+  const budget = budgetFor(args);
+  const user = userTurn(args);
   // 'timeout' is the honest reason if the budget is gone before any attempt can
   // start (for example after a slow air fetch).
   let lastReason: FallbackReason = 'timeout';
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const remainingMs = deadline - Date.now();
+    const remainingMs = budget.deadline - Date.now();
     // The first attempt runs with whatever is left (the timeout below is capped
     // by it); a retry needs enough room to be worth starting.
-    if (remainingMs < (attempt === 0 ? 1 : minRetryMs)) break;
+    if (remainingMs < (attempt === 0 ? 1 : budget.minRetryMs)) break;
 
     const attemptStarted = Date.now();
     const result = await attemptOnce({
       args,
       apiKey,
       user,
-      timeoutMs: Math.min(attemptCapMs, remainingMs),
+      timeoutMs: Math.min(budget.attemptCapMs, remainingMs),
     });
     if (result.plan) return { plan: result.plan, usedLlm: true };
     lastReason = result.reason;
@@ -316,8 +258,21 @@ export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> 
     // Budget check for the retry: only a first attempt that finished inside half
     // the budget leaves room for a second one that still ends before the
     // deadline. A slower first attempt falls back immediately.
-    if (Date.now() - attemptStarted >= retryThresholdMs) break;
+    if (Date.now() - attemptStarted >= budget.retryThresholdMs) break;
   }
 
-  return { plan: fallback(args, lastReason), usedLlm: false, reason: lastReason };
+  return fallbackResult(args, lastReason);
+}
+
+/**
+ * Produce a plan for a snapshot, profile and severity: the model when allowed,
+ * always with a deterministic fallback.
+ *
+ * @param args Profile, air snapshot, derived indices, language and time budget.
+ * @returns The plan, whether the model produced it, and the fallback reason.
+ */
+export async function generatePlan(args: GeneratePlanArgs): Promise<PlanResult> {
+  const ready = await preflight(args);
+  if ('done' in ready) return ready.done;
+  return runAttempts(args, ready.apiKey);
 }

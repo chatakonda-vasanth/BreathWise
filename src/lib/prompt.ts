@@ -14,8 +14,6 @@ import type { AirSnapshot, Language, SeverityBand } from './types';
  * - The model is told it has no tools, no secrets and no ability to act.
  */
 
-export const PROMPT_VERSION = 'v1';
-
 export const LANGUAGE_DIRECTIVE: Record<Language, string> = {
   en: 'Write every human-readable string in English.',
   hi: 'Write every human-readable string in Hindi using Devanagari script (हिन्दी). Do not write Hindi in Latin letters.',
