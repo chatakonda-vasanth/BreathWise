@@ -11,8 +11,20 @@ import { APP_NAME } from '@/lib/constants';
 
 // No `dynamic = 'force-static'`: the canonical URL is derived from the request
 // origin, so this must render per request rather than at build time.
-const CONTACT = 'REPLACE_WITH_MY_EMAIL';
+const CONTACT = 'YOUR_EMAIL';
 
+/**
+ * Serve the RFC 9116 contact file for the requesting origin.
+ *
+ * @param request Used only for the canonical and policy URLs.
+ * @returns A plain-text, cacheable response with no request data echoed back.
+ */
+/**
+ * Serve the RFC 9116 contact file for the requesting origin.
+ *
+ * @param request Used only for the canonical and policy URLs.
+ * @returns A plain-text, cacheable response with no request data echoed back.
+ */
 export function GET(request: Request): Response {
   const origin = new URL(request.url).origin;
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();

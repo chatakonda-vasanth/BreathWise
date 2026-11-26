@@ -10,7 +10,7 @@ describe('RFC 9116 security.txt', () => {
     expect(response.headers.get('content-type')).toContain('text/plain');
 
     const body = await response.text();
-    expect(body).toContain('Contact: mailto:REPLACE_WITH_MY_EMAIL');
+    expect(body).toContain('Contact: mailto:YOUR_EMAIL');
     expect(body).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T/m);
     expect(body).toContain('Preferred-Languages:');
     expect(body).toContain('/.well-known/security.txt');
