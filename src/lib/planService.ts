@@ -44,7 +44,7 @@ export interface GeneratePlanArgs {
   fallbackOnly?: FallbackReason;
 }
 
-function dailyCap(): number {
+export function dailyCap(): number {
   const parsed = Number(readEnv('DAILY_LLM_CAP') ?? '');
   return Number.isFinite(parsed) && parsed > 0
     ? Math.floor(parsed)

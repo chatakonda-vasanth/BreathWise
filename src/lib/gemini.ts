@@ -145,6 +145,8 @@ export interface CallLlmArgs {
   apiKey: string;
   model?: string;
   timeoutMs?: number;
+  /** Response schema; defaults to the full plan schema. */
+  schema?: unknown;
 }
 
 /** Returns raw model text (still untrusted). Throws LlmError on any failure. */
@@ -167,7 +169,7 @@ export async function callGemini(args: CallLlmArgs): Promise<string> {
       temperature: 0.35,
       maxOutputTokens: 4096,
       responseMimeType: 'application/json',
-      responseSchema: RESPONSE_SCHEMA,
+      responseSchema: args.schema ?? RESPONSE_SCHEMA,
       ...thinkingConfigFor(model),
     },
     // No tools, no code execution, no grounding: the model can only answer.

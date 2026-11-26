@@ -1,5 +1,11 @@
+import type { AskQuestion } from './askQuestions';
 import type { Profile } from './schemas';
-import { isAirResponse, isGeocodeResponse, isPlanResponse } from './responseGuards';
+import {
+  isAirResponse,
+  isAnswerResponse,
+  isGeocodeResponse,
+  isPlanResponse,
+} from './responseGuards';
 
 /**
  * Browser-side API access. Every response is shape-checked before use; see
@@ -79,4 +85,26 @@ export async function requestPlan(
     signal,
   });
   return validate(isPlanResponse, payload);
+}
+
+/**
+ * Ask one of the fixed quick questions. The body carries the enum, never free
+ * text, so the server can validate it before any model call.
+ */
+export async function requestAnswer(
+  input: {
+    profile: Profile;
+    lat: number;
+    lon: number;
+    sample?: boolean;
+    question: AskQuestion;
+  },
+  signal?: AbortSignal,
+) {
+  const payload = await requestJson('/api/plan', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    signal,
+  });
+  return validate(isAnswerResponse, payload);
 }

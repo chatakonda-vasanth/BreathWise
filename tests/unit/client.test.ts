@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, fetchAir, requestPlan, searchCities } from '@/lib/client';
+import {
+  ApiError,
+  fetchAir,
+  requestAnswer,
+  requestPlan,
+  searchCities,
+} from '@/lib/client';
 import { deriveIndices } from '@/lib/indices';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
@@ -137,5 +143,58 @@ describe('requestPlan', () => {
     );
     expect(init.signal).toBe(controller.signal);
     expect(JSON.parse(String(init.body))).toMatchObject({ lat: 19.08, lon: 72.88 });
+  });
+});
+
+describe('requestAnswer', () => {
+  const answerBody = {
+    answer: {
+      question: 'openWindows',
+      language: 'en',
+      text: 'Open them at noon for ten minutes.',
+      generatedBy: 'fallback',
+      fallbackReason: 'llm_disabled',
+    },
+    air: {
+      lat: 19.08,
+      lon: 72.88,
+      timezone: 'Asia/Kolkata',
+      fetchedAt: '2026-01-01T00:00:00Z',
+      usAqi: 180,
+      naqi: 300,
+      pm25: 120,
+      severity: 'unhealthy',
+      sample: true,
+    },
+    meta: { generatedBy: 'fallback', fallbackReason: 'llm_disabled', cacheable: false },
+  };
+
+  it('posts the enum question to /api/plan and validates the answer body', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(answerBody));
+    const response = await requestAnswer({
+      profile: PROFILE,
+      lat: 19.08,
+      lon: 72.88,
+      sample: true,
+      question: 'openWindows',
+    });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/plan');
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      question: 'openWindows',
+      sample: true,
+    });
+    expect(response.answer.question).toBe('openWindows');
+    expect(response.answer.generatedBy).toBe('fallback');
+  });
+
+  it('rejects an answer body that does not match the contract', async () => {
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ ...answerBody, answer: { ...answerBody.answer, text: '' } }),
+    );
+    await expect(
+      requestAnswer({ profile: PROFILE, lat: 1, lon: 1, question: 'masksSchoolRun' }),
+    ).rejects.toMatchObject({ status: 502, code: 'invalid_response' });
   });
 });

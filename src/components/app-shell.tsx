@@ -2,15 +2,16 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, fetchAir, requestPlan } from '@/lib/client';
+import { ApiError, fetchAir, requestAnswer, requestPlan } from '@/lib/client';
 import type { AirResponse } from '@/lib/apiSchemas';
+import type { AskQuestion } from '@/lib/askQuestions';
 import { BAND_COLOURS } from '@/lib/aqi';
 import { roundCoord } from '@/lib/geo';
 import { LANGUAGE_NAMES, SEVERITY_LABELS, loadLanguage, t, tList } from '@/lib/i18n';
 import { buildFallbackPlan } from '@/lib/fallbackPlan';
 import { deriveIndices } from '@/lib/indices';
 import { createSampleSnapshot } from '@/lib/sampleData';
-import type { Profile } from '@/lib/schemas';
+import type { PlanAnswerBody, Profile } from '@/lib/schemas';
 import type { Language, Plan } from '@/lib/types';
 import { AirPanel } from './air-panel';
 import { CitySearch, type SelectedLocation } from './city-search';
@@ -182,6 +183,9 @@ export function AppShell() {
   const [planLoading, setPlanLoading] = useState(false);
   const [planSlow, setPlanSlow] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [answer, setAnswer] = useState<PlanAnswerBody | null>(null);
+  const [answerLoading, setAnswerLoading] = useState<AskQuestion | null>(null);
+  const [answerError, setAnswerError] = useState<string | null>(null);
   const planAbort = useRef<AbortController | null>(null);
   /**
    * Plans already generated in this session, keyed by everything that can
@@ -247,6 +251,30 @@ export function AppShell() {
     setLang(code);
   }
 
+  /**
+   * Ask one fixed quick question. Only the enum and the enumerated profile go
+   * out; the server re-fetches the air data and applies the same guardrails.
+   */
+  async function handleAsk(question: AskQuestion) {
+    if (!location) return;
+    setAnswerLoading(question);
+    setAnswerError(null);
+    try {
+      const response = await requestAnswer({
+        profile: { ...profile, language: lang },
+        lat: location.lat,
+        lon: location.lon,
+        sample: airData?.air.isSample ?? false,
+        question,
+      });
+      setAnswer(response.answer);
+    } catch {
+      setAnswerError(t(lang, 'askFailed'));
+    } finally {
+      setAnswerLoading(null);
+    }
+  }
+
   async function handleSubmitPlan() {
     if (!location) return;
     const cacheKey = planCacheKey(profile, lang, airData, location);
@@ -266,6 +294,8 @@ export function AppShell() {
     setPlanSlow(false);
     setPlanError(null);
     setPlan(null);
+    setAnswer(null);
+    setAnswerError(null);
     // A real generation can take 10-20 s; after 5 s say so instead of leaving a
     // silent spinner. The timer is cleared with the request.
     const slowTimer = setTimeout(() => setPlanSlow(true), SLOW_PLAN_MS);
@@ -397,6 +427,10 @@ export function AppShell() {
               location={location}
               onBack={() => setStep(2)}
               onRegenerate={() => void handleSubmitPlan()}
+              onAsk={(question) => void handleAsk(question)}
+              answer={answer}
+              answerLoading={answerLoading}
+              answerError={answerError}
             />
           ) : null}
         </main>
@@ -552,6 +586,10 @@ interface PlanStepProps {
   location: SelectedLocation | null;
   onBack: () => void;
   onRegenerate: () => void;
+  onAsk: (question: AskQuestion) => void;
+  answer: PlanAnswerBody | null;
+  answerLoading: AskQuestion | null;
+  answerError: string | null;
 }
 
 /** Step 3: provenance banners, the AQI summary line and the plan itself. */
@@ -563,6 +601,10 @@ function PlanStep({
   location,
   onBack,
   onRegenerate,
+  onAsk,
+  answer,
+  answerLoading,
+  answerError,
 }: PlanStepProps) {
   const usAqi = airData?.indices.usAqi;
   const severity = airData?.indices.severity ?? 'moderate';
@@ -590,6 +632,10 @@ function PlanStep({
         pm25={airData?.air.current.pm25 ?? null}
         lat={location?.lat ?? null}
         lon={location?.lon ?? null}
+        onAsk={onAsk}
+        answer={answer}
+        answerLoading={answerLoading}
+        answerError={answerError}
       />
     </div>
   );

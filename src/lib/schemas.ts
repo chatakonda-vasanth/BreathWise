@@ -1,5 +1,6 @@
 import './zod-jitless';
 import { z } from 'zod';
+import { ASK_QUESTIONS } from './askQuestions';
 import { MAX_CITY_QUERY, MAX_PLAN_STRING } from './constants';
 
 /**
@@ -10,6 +11,14 @@ import { MAX_CITY_QUERY, MAX_PLAN_STRING } from './constants';
  */
 
 export const languageSchema = z.enum(['en', 'hi', 'te']);
+
+/**
+ * The closed set of quick questions. An enum, not a string: a caller cannot
+ * send free text, so a prompt-injection payload is a 400 before any model call.
+ */
+export const askQuestionSchema = z.enum(ASK_QUESTIONS);
+
+export type AskQuestionValue = z.infer<typeof askQuestionSchema>;
 
 /** Numeric query-string parser: rejects "", "  ", "1e999", "0x10", "abc". */
 const queryNumber = (min: number, max: number) =>
@@ -102,6 +111,8 @@ export const planRequestSchema = z
      */
     /** Explicit demo mode: use the clearly labelled sample snapshot server-side. */
     sample: z.boolean().optional(),
+    /** Optional quick question; answered through the same guardrails. */
+    question: askQuestionSchema.optional(),
   })
   .strict();
 
@@ -202,6 +213,39 @@ export const planResponseSchema = z
   .strict();
 
 export type PlanResponse = z.infer<typeof planResponseSchema>;
+
+/** What the model must return for a quick question: one answer, nothing else. */
+export const llmAnswerSchema = z
+  .strictObject({
+    answer: shortText(MAX_PLAN_STRING),
+  })
+  .strict();
+
+export type LlmAnswer = z.infer<typeof llmAnswerSchema>;
+
+/** One answered quick question, with provenance so the UI can label fallbacks. */
+export const planAnswerSchema = z
+  .strictObject({
+    question: askQuestionSchema,
+    language: languageSchema,
+    text: z.string().min(1).max(MAX_PLAN_STRING),
+    generatedBy: z.enum(['llm', 'fallback']),
+    fallbackReason: z.string().max(60).optional(),
+  })
+  .strict();
+
+export type PlanAnswerBody = z.infer<typeof planAnswerSchema>;
+
+/** Same air and meta blocks as the plan response, so clients can share guards. */
+export const answerResponseSchema = z
+  .strictObject({
+    answer: planAnswerSchema,
+    air: planResponseSchema.shape.air,
+    meta: planResponseSchema.shape.meta,
+  })
+  .strict();
+
+export type AnswerResponse = z.infer<typeof answerResponseSchema>;
 
 /** Safe parse helper that never throws and never echoes the input back. */
 export function parseOrNull<T extends z.ZodType>(

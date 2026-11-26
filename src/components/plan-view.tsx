@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { BAND_COLOURS } from '@/lib/aqi';
+import { ASK_LABEL_KEY, ASK_QUESTIONS, type AskQuestion } from '@/lib/askQuestions';
 import { fallbackReasonLabel, SEVERITY_LABELS, t, tList } from '@/lib/i18n';
-import type { Profile } from '@/lib/schemas';
+import type { PlanAnswerBody, Profile } from '@/lib/schemas';
 import type { Language, Plan, Recommendation } from '@/lib/types';
 import { LocalContextCard, WhyThisPlanFits, WithWithoutCard } from './personal-context';
 import { Banner, BandChip, SectionHeading } from './ui';
@@ -110,6 +111,11 @@ interface PlanViewProps {
   lang: Language;
   onBack: () => void;
   onRegenerate: () => void;
+  /** Ask one of the fixed quick questions (never free text). */
+  onAsk?: (question: AskQuestion) => void;
+  answer?: PlanAnswerBody | null;
+  answerLoading?: AskQuestion | null;
+  answerError?: string | null;
   /** Household inputs, so the plan can explain what shaped it. */
   profile?: Partial<Profile> | null;
   /** Outdoor PM2.5 for the with/without estimate; null when unavailable. */
@@ -132,6 +138,10 @@ export function PlanView({
   pm25,
   lat,
   lon,
+  onAsk,
+  answer,
+  answerLoading,
+  answerError,
 }: PlanViewProps) {
   const [copied, setCopied] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
@@ -309,6 +319,66 @@ export function PlanView({
           </div>
         ))}
       </div>
+
+      {onAsk ? (
+        <section className="mt-5" aria-labelledby="ask-heading">
+          <SectionHeading id="ask-heading">{t(lang, 'askTitle')}</SectionHeading>
+          <p className="hint mt-1">{t(lang, 'askHelp')}</p>
+          <div
+            className="mt-2 flex flex-wrap gap-2"
+            role="group"
+            aria-label={t(lang, 'askTitle')}
+            aria-busy={Boolean(answerLoading)}
+          >
+            {ASK_QUESTIONS.map((question) => (
+              <button
+                key={question}
+                type="button"
+                className="btn text-sm"
+                aria-pressed={answer?.question === question}
+                disabled={Boolean(answerLoading)}
+                onClick={() => onAsk(question)}
+              >
+                {t(lang, ASK_LABEL_KEY[question])}
+              </button>
+            ))}
+          </div>
+
+          {answerLoading ? (
+            <p className="hint mt-2" role="status" aria-live="polite">
+              {t(lang, 'askAnswering')}
+            </p>
+          ) : null}
+
+          {answer ? (
+            <div className="card mt-3" role="status" aria-live="polite">
+              <h3 className="text-base font-bold">
+                {t(lang, ASK_LABEL_KEY[answer.question])}
+              </h3>
+              <p className="mt-1 text-sm">{answer.text}</p>
+              {answer.generatedBy === 'fallback' ? (
+                <p className="hint mt-2">
+                  {t(lang, 'askFallback')}
+                  {answer.fallbackReason
+                    ? ` (${t(lang, 'fallbackReason')}: ${fallbackReasonLabel(
+                        lang,
+                        answer.fallbackReason,
+                      )})`
+                    : ''}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {answerError ? (
+            <div className="mt-3">
+              <Banner live="assertive" tone="warn" title={t(lang, 'askFailed')}>
+                <p>{answerError}</p>
+              </Banner>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mt-5" aria-labelledby="indoor-heading">
         <SectionHeading id="indoor-heading">{t(lang, 'indoor')}</SectionHeading>

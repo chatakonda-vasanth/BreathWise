@@ -17,6 +17,7 @@ import {
   readJsonBody,
   type ErrorCode,
 } from '@/lib/http';
+import { generateAnswer, type AnswerResult } from '@/lib/ask';
 import { generatePlan, type PlanResult } from '@/lib/planService';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { planRequestSchema } from '@/lib/schemas';
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return errorResponse('invalid_input');
   }
 
-  const { profile, lat, lon, sample } = parsed.data;
+  const { profile, lat, lon, sample, question } = parsed.data;
 
   // 4. Air data is fetched here, never accepted from the caller. The only
   //    exception is the explicit, clearly labelled demo mode.
@@ -114,7 +115,28 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   const derived = deriveIndices(snapshot);
 
-  // 5. LLM or deterministic fallback. Never throws: failures fall back.
+  // Hand the model only what is left of the function's wall clock, minus the
+  // margin needed to write the response.
+  const budgetMs =
+    FUNCTION_MAX_DURATION_S * 1000 - ROUTE_RESPONSE_MARGIN_MS - (Date.now() - started);
+
+  // 5a. A quick question is answered through the same guardrails and the same
+  //     labelled fallback, with no free-text field anywhere in the request.
+  if (question) {
+    const answered = await generateAnswer({
+      question,
+      profile,
+      snapshot,
+      derived,
+      severity: derived.severity,
+      language: profile.language,
+      ...(limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
+      budgetMs,
+    });
+    return logAndAnswer(answered, question, snapshot, derived, started);
+  }
+
+  // 5b. LLM or deterministic fallback. Never throws: failures fall back.
   const result = await generatePlan({
     profile,
     snapshot,
@@ -125,11 +147,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     // No rate limiting means no model call at all: the free tier cannot be
     // protected, so the paid path stays off until Upstash is reachable.
     ...(limiterUnavailable ? { fallbackOnly: 'limiter_unavailable' as const } : {}),
-    // Hand the model only what is left of the function's wall clock, minus the
-    // margin needed to write the response. generatePlan clamps and never starts
-    // an attempt it cannot finish before the deadline.
-    budgetMs:
-      FUNCTION_MAX_DURATION_S * 1000 - ROUTE_RESPONSE_MARGIN_MS - (Date.now() - started),
+    // generatePlan clamps and never starts an attempt it cannot finish before
+    // the deadline.
+    budgetMs,
   });
 
   logEvent({
@@ -177,22 +197,61 @@ async function resolveSnapshot(
 }
 
 /** Response body: the plan plus the provenance the UI labels. */
+function airProvenance(snapshot: Snapshot, derived: Derived) {
+  return {
+    lat: snapshot.lat,
+    lon: snapshot.lon,
+    timezone: snapshot.timezone,
+    fetchedAt: snapshot.fetchedAt,
+    usAqi: Math.round(derived.usAqi),
+    naqi: Math.round(derived.naqi.value),
+    pm25: snapshot.current.pm25,
+    severity: derived.severity,
+    sample: snapshot.isSample,
+  };
+}
+
 function planResponseBody(result: PlanResult, snapshot: Snapshot, derived: Derived) {
   return {
     plan: result.plan,
-    air: {
-      lat: snapshot.lat,
-      lon: snapshot.lon,
-      timezone: snapshot.timezone,
-      fetchedAt: snapshot.fetchedAt,
-      usAqi: Math.round(derived.usAqi),
-      naqi: Math.round(derived.naqi.value),
-      pm25: snapshot.current.pm25,
-      severity: derived.severity,
-      sample: snapshot.isSample,
-    },
+    air: airProvenance(snapshot, derived),
     meta: {
       generatedBy: result.plan.generatedBy,
+      ...(result.reason ? { fallbackReason: result.reason } : {}),
+      cacheable: false,
+    },
+  };
+}
+
+/**
+ * Log and return one answered question. Split out of `POST` so the route reads
+ * as a sequence of checks and the branch budget stays readable.
+ */
+function logAndAnswer(
+  answered: AnswerResult,
+  question: string,
+  snapshot: Snapshot,
+  derived: Derived,
+  started: number,
+): Response {
+  logEvent({
+    route: '/api/plan',
+    status: 200,
+    durationMs: Date.now() - started,
+    outcome: answered.usedLlm
+      ? `answer:llm:${question}`
+      : `answer:fallback:${answered.reason ?? 'unknown'}`,
+  });
+  return jsonResponse(answerResponseBody(answered, snapshot, derived));
+}
+
+/** Response body for a quick question: the answer plus the same provenance. */
+function answerResponseBody(result: AnswerResult, snapshot: Snapshot, derived: Derived) {
+  return {
+    answer: result.answer,
+    air: airProvenance(snapshot, derived),
+    meta: {
+      generatedBy: result.answer.generatedBy,
       ...(result.reason ? { fallbackReason: result.reason } : {}),
       cacheable: false,
     },

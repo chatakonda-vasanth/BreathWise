@@ -1,5 +1,6 @@
 import type { AirResponse, GeocodeResponse } from './apiSchemas';
-import type { PlanResponse } from './schemas';
+import { isAskQuestion } from './askQuestions';
+import type { AnswerResponse, PlanResponse } from './schemas';
 import type { Language, SeverityBand, UsBand, NaqiBand } from './types';
 
 /**
@@ -236,6 +237,30 @@ export function isPlanResponse(value: unknown): value is PlanResponse {
   return (
     isRecord(value) &&
     isPlan(value.plan) &&
+    isPlanAir(value.air) &&
+    isPlanMeta(value.meta)
+  );
+}
+
+/** One answered quick question: closed question, text, provenance. */
+function isPlanAnswer(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    isAskQuestion(value.question) &&
+    typeof value.language === 'string' &&
+    LANGUAGES.has(value.language) &&
+    isNonEmptyString(value.text) &&
+    typeof value.generatedBy === 'string' &&
+    PROVENANCE.has(value.generatedBy) &&
+    (value.fallbackReason === undefined || typeof value.fallbackReason === 'string')
+  );
+}
+
+/** True when `value` is a complete quick-question `/api/plan` body. */
+export function isAnswerResponse(value: unknown): value is AnswerResponse {
+  return (
+    isRecord(value) &&
+    isPlanAnswer(value.answer) &&
     isPlanAir(value.air) &&
     isPlanMeta(value.meta)
   );
