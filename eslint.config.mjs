@@ -18,6 +18,21 @@ export default defineConfig([
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
+      // A leftover task marker is an unfinished thought in a public-health tool.
+      'no-warning-comments': [
+        'error',
+        { terms: ['todo', 'fixme', 'xxx', 'hack'], location: 'anywhere' },
+      ],
+      // Accessibility checks richer than the six the Next preset enables.
+      'jsx-a11y/alt-text': 'error',
+      'jsx-a11y/anchor-is-valid': 'error',
+      'jsx-a11y/click-events-have-key-events': 'error',
+      'jsx-a11y/no-static-element-interactions': 'error',
+      'jsx-a11y/no-autofocus': 'error',
+      // `label-has-associated-control` is deliberately not enabled: it calls
+      // minimatch, whose pinned 11.x has no CommonJS default export, so the rule
+      // crashes the linter. The controls here are labelled explicitly (htmlFor
+      // or a wrapping label), and axe scans them in the e2e suite.
     },
   },
   {
@@ -40,8 +55,18 @@ export default defineConfig([
       '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: false }],
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-non-null-assertion': 'error',
-      // Keep functions reviewable: past this size, split by responsibility.
-      complexity: ['error', 15],
+      // Type-only imports are erased, so a type never pulls runtime code in.
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
+      ],
+      // Keep functions reviewable: past these sizes, split by responsibility.
+      complexity: ['error', 10],
+      'max-lines-per-function': [
+        'error',
+        { max: 60, skipBlankLines: true, skipComments: true },
+      ],
+      'max-lines': ['error', { max: 320, skipBlankLines: true, skipComments: true }],
       'max-depth': ['error', 4],
       'max-params': ['error', 5],
     },
