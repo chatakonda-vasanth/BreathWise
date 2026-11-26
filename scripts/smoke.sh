@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
-# Post-deployment smoke test for CleanAir Companion.
+# Post-deployment smoke test for the Urban Air Quality Assistant.
 #
-#   scripts/smoke.sh https://cleanair-companion.vercel.app
-#   npm run smoke -- https://cleanair-companion.vercel.app
+#   scripts/smoke.sh https://urban-air-quality-assistant.vercel.app
+#   npm run smoke -- https://urban-air-quality-assistant.vercel.app
 #
 # It checks the live origin, not the source tree:
 #   1. / returns 200

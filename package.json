@@ -1,6 +1,7 @@
 {
-  "name": "cleanair-companion",
+  "name": "urban-air-quality-assistant",
   "version": "1.0.0",
+  "description": "Urban Air Quality Assistant — GenAI guidance for smog days: low-emission daily routines, indoor air quality hacks and sustainable alternatives tailored to your location and lifestyle, with the direct impact of each choice explained.",
   "private": true,
   "type": "module",
   "engines": {
@@ -40,7 +41,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.11.1",
-    "@opennextjs/cloudflare": "1.20.18",
+    "@opennextjs/cloudflare": "1.20.12",
     "@playwright/test": "1.65.1",
     "@tailwindcss/postcss": "4.3.5",
     "@types/node": "26.6.6",
@@ -56,7 +57,7 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.74.0",
     "vitest": "5.1.1",
-    "wrangler": "4.168.0"
+    "wrangler": "4.148.0"
   },
   "overrides": {
     "glob": "14.0.6",

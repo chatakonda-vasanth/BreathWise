@@ -2,7 +2,7 @@ import type { UiKey } from './en';
 
 /** Hindi UI strings. Loaded only when Hindi is selected. */
 export const hi: Record<UiKey, string | string[]> = {
-  appName: 'क्लीनएयर साथी',
+  appName: 'शहरी वायु गुणवत्ता सहायक',
   tagline: 'स्मॉग के दिनों के लिए व्यावहारिक सलाह — आपके परिवार और मोहल्ले के लिए।',
   stepLocation: 'स्थान',
   stepProfile: 'छोटी प्रोफ़ाइल',
@@ -145,6 +145,19 @@ export const hi: Record<UiKey, string | string[]> = {
 
   whyFits: 'यह योजना आपके लिए क्यों सही है',
 
+  askTitle: 'आज की योजना के बारे में पूछें',
+  askHelp:
+    'कोई प्रश्न चुनें। केवल तय प्रश्न और आपकी श्रेणी-चॉइस भेजी जाती हैं — आपका लिखा कोई पाठ नहीं।',
+  askSafeWalk: 'क्या आज बच्चों का स्कूल पैदल जाना सुरक्षित है?',
+  askWhichRoom: 'किस कमरे पर सबसे पहले ध्यान देना चाहिए?',
+  askOpenWindows: 'आज खिड़कियाँ कब खोलनी चाहिए?',
+  askExercise: 'क्या आज बाहर व्यायाम कर सकते हैं?',
+  askMasks: 'स्कूल जाते समय मास्क चाहिए?',
+  askCook: 'आज रात कम धुएँ में खाना कैसे बनाएँ?',
+  askAnswering: 'उत्तर तैयार हो रहा है…',
+  askFallback: 'AI उत्तर उपलब्ध नहीं — यह इस प्रश्न के लिए अंतर्निहित नियम-आधारित मार्गदर्शन है।',
+  askFailed: 'हम इस प्रश्न का उत्तर नहीं दे सके। कृपया फिर प्रयास करें।',
+
   communityTitle: 'समुदाय मोड',
   communityHelp: 'गोपनीयता-सुरक्षित मोहल्ला चेकलिस्ट। इसमें कोई नाम, पता या स्थान डेटा नहीं है।',
   communityItems: [
@@ -169,7 +182,7 @@ export const hi: Record<UiKey, string | string[]> = {
   lowBandwidthOn: 'टेक्स्ट पहले (चार्ट छिपे)',
   lowBandwidthOff: 'चार्ट दिखाएँ',
   footerData: 'वायु डेटा: Open-Meteo (CC BY 4.0)। मुफ़्त API गैर-व्यावसायिक उपयोग के लिए है।',
-  footerMedical: 'क्लीनएयर साथी सामान्य मार्गदर्शन देता है, चिकित्सा सलाह नहीं।',
+  footerMedical: 'शहरी वायु गुणवत्ता सहायक सामान्य मार्गदर्शन देता है, चिकित्सा सलाह नहीं।',
   loading: 'लोड हो रहा है…',
   errorGeneric: 'कुछ गड़बड़ हुई। कृपया फिर कोशिश करें।',
   noData: 'डेटा नहीं',

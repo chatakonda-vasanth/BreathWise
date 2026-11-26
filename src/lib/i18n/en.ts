@@ -3,7 +3,7 @@
  * this object, so a missing translation is a compile error, not a blank label.
  */
 export const en = {
-  appName: 'CleanAir Companion',
+  appName: 'Urban Air Quality Assistant',
   tagline: 'Practical guidance for smog days — for your family and your neighbourhood.',
   stepLocation: 'Location',
   stepProfile: 'Quick profile',
@@ -148,6 +148,20 @@ export const en = {
 
   whyFits: 'Why this plan fits you',
 
+  askTitle: 'Ask about today’s plan',
+  askHelp:
+    'Tap a question. Only the fixed question and your category choices are sent — never text you typed.',
+  askSafeWalk: 'Is it safe to walk to school today?',
+  askWhichRoom: 'Which room needs the most attention?',
+  askOpenWindows: 'When should we open the windows today?',
+  askExercise: 'Can we exercise outside today?',
+  askMasks: 'Do we need masks on the school run?',
+  askCook: 'How do we cook with less smoke tonight?',
+  askAnswering: 'Answering…',
+  askFallback:
+    'AI answer unavailable — this is the built-in rule-based guidance for this question.',
+  askFailed: 'We could not answer that question. Please try again.',
+
   communityTitle: 'Community mode',
   communityHelp:
     'A privacy-safe neighbourhood checklist. It contains no names, no addresses and no location data.',
@@ -173,7 +187,8 @@ export const en = {
   lowBandwidthOn: 'Text-first (charts hidden)',
   lowBandwidthOff: 'Show charts',
   footerData: 'Air data: Open-Meteo (CC BY 4.0). The free API is for non-commercial use.',
-  footerMedical: 'CleanAir Companion gives general guidance, not medical advice.',
+  footerMedical:
+    'Urban Air Quality Assistant gives general guidance, not medical advice.',
   loading: 'Loading…',
   errorGeneric: 'Something went wrong. Please try again.',
   noData: 'No data',

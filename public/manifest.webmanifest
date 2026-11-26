@@ -1,7 +1,7 @@
 {
-  "name": "CleanAir Companion",
-  "short_name": "CleanAir",
-  "description": "Privacy-first, location-aware guidance for smog days: air quality, a household plan and low-emission alternatives.",
+  "name": "Urban Air Quality Assistant",
+  "short_name": "Urban Air",
+  "description": "GenAI guidance for smog days: air quality, low-emission daily routines, indoor air hacks and sustainable alternatives tailored to your location and lifestyle.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

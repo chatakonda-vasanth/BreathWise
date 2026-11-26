@@ -1,6 +1,6 @@
 /** App-wide constants. Single place for limits so routes and UI cannot drift. */
 
-export const APP_NAME = 'CleanAir Companion';
+export const APP_NAME = 'Urban Air Quality Assistant';
 export const AIR_SOURCE_LABEL = 'Open-Meteo Air Quality (CAMS)';
 export const AIR_SOURCE_URL = 'https://open-meteo.com/';
 

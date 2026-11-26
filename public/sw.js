@@ -1,5 +1,5 @@
 /*
- * CleanAir Companion service worker.
+ * Urban Air Quality Assistant service worker.
  *
  * PRIVACY RULE: /api/* is never intercepted, never cached and never stored.
  * Plans and air responses are personalised/short-lived and must always come

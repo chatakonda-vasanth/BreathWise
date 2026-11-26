@@ -28,10 +28,10 @@ const telugu = Noto_Sans_Telugu({
 });
 
 export const metadata: Metadata = {
-  title: 'CleanAir Companion — smog-day guidance for families',
+  title: 'Urban Air Quality Assistant — smog-day guidance for families',
   description:
-    'Location-aware, privacy-first guidance for smog days: air quality, a plan for your household, and low-emission alternatives.',
-  applicationName: 'CleanAir Companion',
+    'GenAI guidance for smog days: air quality, low-emission daily routines, indoor air hacks and sustainable alternatives tailored to your location and lifestyle.',
+  applicationName: 'Urban Air Quality Assistant',
   manifest: '/manifest.webmanifest',
   robots: { index: true, follow: true },
   icons: {
