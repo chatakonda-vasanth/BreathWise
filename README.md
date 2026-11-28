@@ -159,9 +159,6 @@ flowchart TD
 ```
                        ┌──────────────────────────────────────────┐
  browser (no secrets)  │  React client (app-shell, plan-view)     │
-
-                       ┌──────────────────────────────────────────┐
- browser (no secrets)  │  React client (app-shell, plan-view)     │
                        │  · profile stays in React state          │
                        │  · regional + impact layers run locally  │
                        └───────────────┬──────────────────────────┘
@@ -504,7 +501,7 @@ its assumption.
 | Direct impact with a deterministic with/without estimate                                  | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact.ts`, rendered by `WithWithoutCard`                                                                           | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing)                                                             |
 | “Rough estimate” next to every number, in English, Hindi and Telugu                       | `ImpactLabels.roughEstimate` in `src/lib/impact.ts`, printed beside each value                                                                                          | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”)                                                          |
 | Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx`                                           | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan                    |
-| Community checklist (school, workplace, resident association, no-burning, carpool)        | `communityItems` in `src/lib/i18n.ts`, rendered in “Community mode”                                                                                                     | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable          |
+| Community checklist (school, workplace, resident association, no-burning, carpool)        | `communityItems` in `src/lib/i18n/index.ts`, rendered in “Community mode”                                                                                                     | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable          |
 | Conservative, labelled regional and impact claims                                         | Every regional note and impact factor states its assumption; see `src/lib/regional.ts`, `src/lib/impact.ts`, `src/lib/fallbackPlan.ts`                                  | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present)                          |
 
 ## Deploy (Vercel)
@@ -786,7 +783,7 @@ paid Upstash plan — the code needs no change.
     Identical profile + language + AQI band + coordinates is served from memory.
     The alternative (regenerating) would spend a rate-limit token to produce the
     same answer.
-16. **ESLint complexity limit is 15, not 12.** Chosen after measuring: 12 failed
+16. **ESLint complexity limit is 10.** Chosen after measuring: 12 failed
     on routing and origin-check functions whose branches are the security rules
     themselves, and forcing them apart made the checks harder to audit. The
     functions above the limit were split (`generatePlan`, `checkOrigin`,

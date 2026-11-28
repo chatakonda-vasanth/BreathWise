@@ -26,6 +26,7 @@
     "smoke": "bash scripts/smoke.sh",
     "check:bundles": "node scripts/check-client-bundles.mjs",
     "check:secrets-in-bundle": "node scripts/check-secrets-in-bundle.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "check": "npm run lint && npm run typecheck && npm run test",
     "test:security": "vitest run tests/security",
     "secrets:dir": "gitleaks dir . --no-banner --redact",
