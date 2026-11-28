@@ -57,6 +57,14 @@ export const MAX_BODY_BYTES = 8 * 1024;
 export const MAX_CITY_QUERY = 60;
 export const MAX_PLAN_STRING = 600;
 
+/** Main-room area accepted by the profile, in square metres. */
+export const ROOM_SIZE_MIN_SQM = 5;
+export const ROOM_SIZE_MAX_SQM = 200;
+
+/** In-process limiter bucket cap, and the TTL of a daily quota key. */
+export const MAX_MEMORY_BUCKETS = 5000;
+export const QUOTA_KEY_TTL_SECONDS = 26 * 60 * 60;
+
 /** Rate limits: requests per window (ms) per client IP. */
 export const RATE_LIMITS = {
   air: { limit: 60, windowMs: 60_000 },
@@ -72,4 +80,3 @@ export const DEFAULT_DAILY_LLM_CAP = 200;
 /** Default model when GEMINI_MODEL is unset. Overridable without a code change. */
 export const DEFAULT_GEMINI_MODEL = 'gemini-3.5-flash';
 
-export const LANGUAGES = ['en', 'hi', 'te'] as const;

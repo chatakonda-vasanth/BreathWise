@@ -1,6 +1,7 @@
 'use client';
 
 import { t } from '@/lib/i18n';
+import { ROOM_SIZE_MAX_SQM, ROOM_SIZE_MIN_SQM } from '@/lib/shared/constants';
 import type { Profile } from '@/lib/shared/schemas';
 import type { Language } from '@/lib/shared/types';
 
@@ -97,7 +98,9 @@ function roomSizePatch(raw: string): Partial<Profile> | null {
   if (raw === '') return { roomSizeSqm: undefined };
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return null;
-  return { roomSizeSqm: Math.min(Math.max(parsed, 5), 200) };
+  return {
+    roomSizeSqm: Math.min(Math.max(parsed, ROOM_SIZE_MIN_SQM), ROOM_SIZE_MAX_SQM),
+  };
 }
 
 /** Main room area, which drives the purifier sizing and the impact estimate. */
@@ -120,8 +123,8 @@ function RoomSizeField({
         className="input tabular-nums"
         type="number"
         inputMode="decimal"
-        min={5}
-        max={200}
+        min={ROOM_SIZE_MIN_SQM}
+        max={ROOM_SIZE_MAX_SQM}
         step={1}
         value={value ?? ''}
         onChange={(event) => {

@@ -1,3 +1,4 @@
+import { QUOTA_KEY_TTL_SECONDS } from '@/lib/shared/constants';
 import type { QuotaResult } from './types';
 import { getRedis } from './upstash';
 import { isProductionRuntime, upstashConfigured, withTimeout } from './runtime';
@@ -29,7 +30,7 @@ async function consumeRedisQuota(key: string, cap: number): Promise<QuotaResult>
     /* istanbul ignore next -- non-null whenever Upstash is configured */
     if (!redis) return { allowed: false, reason: 'quota_unavailable', degraded: true };
     const count = await withTimeout(redis.incr(key));
-    if (count === 1) await withTimeout(redis.expire(key, 60 * 60 * 26));
+    if (count === 1) await withTimeout(redis.expire(key, QUOTA_KEY_TTL_SECONDS));
     if (count > cap) return { allowed: false, reason: 'daily_cap', degraded: false };
     return { allowed: true, degraded: false };
   } catch {

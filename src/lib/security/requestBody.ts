@@ -1,4 +1,5 @@
 import { MAX_BODY_BYTES } from '@/lib/shared/constants';
+import { fail, ok, type Result } from '@/lib/shared/result';
 
 /**
  * Bounded request-body reading.
@@ -7,12 +8,11 @@ import { MAX_BODY_BYTES } from '@/lib/shared/constants';
  * cap that makes it safe — is worth reading on its own.
  */
 
-export type BodyResult =
-  | { ok: true; value: unknown }
-  | { ok: false; reason: 'too_large' | 'invalid_json' | 'unsupported_media_type' };
+type BodyError = 'too_large' | 'invalid_json' | 'unsupported_media_type';
+export type BodyResult = Result<unknown, BodyError>;
 
-type TextResult =
-  { ok: true; text: string } | { ok: false; reason: 'too_large' | 'invalid_json' };
+type TextError = 'too_large' | 'invalid_json';
+type TextResult = Result<string, TextError>;
 
 /**
  * Read at most `maxBytes` from the request stream and cancel the rest.
@@ -50,12 +50,12 @@ async function readBuffered(request: Request, maxBytes: number): Promise<TextRes
   try {
     text = await request.text();
   } catch {
-    return { ok: false, reason: 'invalid_json' };
+    return fail('invalid_json');
   }
   if (new TextEncoder().encode(text).byteLength > maxBytes) {
-    return { ok: false, reason: 'too_large' };
+    return fail('too_large');
   }
-  return { ok: true, text };
+  return ok(text);
 }
 
 /** Read a stream chunk by chunk, stopping as soon as the cap is crossed. */
@@ -76,17 +76,17 @@ async function readStream(
       received += value.byteLength;
       if (received > maxBytes) {
         await reader.cancel().catch(() => undefined);
-        return { ok: false, reason: 'too_large' };
+        return fail('too_large');
       }
       text += decoder.decode(value, { stream: true });
     }
     text += decoder.decode();
   } catch {
     await reader.cancel().catch(() => undefined);
-    return { ok: false, reason: 'invalid_json' };
+    return fail('invalid_json');
   }
 
-  return { ok: true, text };
+  return ok(text);
 }
 
 /** The exact media type of a header value, lower-cased, without parameters. */
@@ -115,16 +115,16 @@ export async function readJsonBody(
   // Compare the media type exactly. A substring test accepts nonsense such as
   // `text/plain; x=application/json`; the body must really be JSON.
   if (mediaTypeOf(request.headers.get('content-type')) !== 'application/json') {
-    return { ok: false, reason: 'unsupported_media_type' };
+    return fail('unsupported_media_type');
   }
-  if (declaredTooLarge(request, maxBytes)) return { ok: false, reason: 'too_large' };
+  if (declaredTooLarge(request, maxBytes)) return fail('too_large');
 
   const read = await readBoundedText(request, maxBytes);
   if (!read.ok) return read;
 
   try {
-    return { ok: true, value: JSON.parse(read.text) as unknown };
+    return ok(JSON.parse(read.value) as unknown);
   } catch {
-    return { ok: false, reason: 'invalid_json' };
+    return fail('invalid_json');
   }
 }

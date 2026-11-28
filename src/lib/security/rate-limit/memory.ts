@@ -1,3 +1,4 @@
+import { MAX_MEMORY_BUCKETS } from '@/lib/shared/constants';
 import type { Bucket, LimitOutcome, Limiter } from './types';
 
 export class MemoryLimiter implements Limiter {
@@ -42,7 +43,7 @@ export class MemoryLimiter implements Limiter {
 
   /** Prevent unbounded growth from junk keys. */
   private sweep(now: number): void {
-    if (this.buckets.size < 5000) return;
+    if (this.buckets.size < MAX_MEMORY_BUCKETS) return;
     for (const [key, bucket] of this.buckets) {
       if (bucket.resetAt <= now) this.buckets.delete(key);
     }
