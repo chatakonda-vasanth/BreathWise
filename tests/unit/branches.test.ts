@@ -376,13 +376,13 @@ describe('bounded body reader', () => {
         controller.error(new Error('connection reset'));
       },
     });
-    const request = new Request('http://localhost/api/plan', {
+    const init: RequestInit & { duplex: 'half' } = {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: stream,
-      // @ts-expect-error Node needs duplex for a streaming body; workerd ignores it.
       duplex: 'half',
-    });
+    };
+    const request = new Request('http://localhost/api/plan', init);
     await expect(readJsonBody(request)).resolves.toEqual({
       ok: false,
       reason: 'invalid_json',
