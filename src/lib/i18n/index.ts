@@ -76,31 +76,16 @@ export const SEVERITY_LABELS: Record<Language, Record<SeverityBand, string>> = {
   },
 };
 
+/** US AQI uses the same wording; only the sensitive-group key differs. */
+function usBandLabels(labels: Record<SeverityBand, string>): Record<UsBand, string> {
+  const { good, moderate, sensitive, unhealthy, veryUnhealthy, hazardous } = labels;
+  return { good, moderate, usg: sensitive, unhealthy, veryUnhealthy, hazardous };
+}
+
 export const US_BAND_LABELS: Record<Language, Record<UsBand, string>> = {
-  en: {
-    good: 'Good',
-    moderate: 'Moderate',
-    usg: 'Unhealthy for sensitive groups',
-    unhealthy: 'Unhealthy',
-    veryUnhealthy: 'Very unhealthy',
-    hazardous: 'Hazardous',
-  },
-  hi: {
-    good: 'अच्छा',
-    moderate: 'मध्यम',
-    usg: 'संवेदनशील समूहों के लिए अस्वस्थ',
-    unhealthy: 'अस्वस्थ',
-    veryUnhealthy: 'बहुत अस्वस्थ',
-    hazardous: 'खतरनाक',
-  },
-  te: {
-    good: 'మంచిది',
-    moderate: 'మధ్యస్థం',
-    usg: 'సున్నితమైన వర్గాలకు అనారోగ్యకరం',
-    unhealthy: 'అనారోగ్యకరం',
-    veryUnhealthy: 'చాలా అనారోగ్యకరం',
-    hazardous: 'ప్రమాదకరం',
-  },
+  en: usBandLabels(SEVERITY_LABELS.en),
+  hi: usBandLabels(SEVERITY_LABELS.hi),
+  te: usBandLabels(SEVERITY_LABELS.te),
 };
 
 export const NAQI_LABELS: Record<Language, Record<NaqiBand, string>> = {
