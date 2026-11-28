@@ -13,7 +13,7 @@ import type { Language } from '@/lib/shared/types';
  * fix never leaves the browser.
  */
 
-export type GeoState = 'idle' | 'consent' | 'locating' | 'error';
+type GeoState = 'idle' | 'consent' | 'locating' | 'error';
 
 /** A rounded position; the only shape that ever leaves this hook. */
 export interface GeolocationFix {

@@ -1,7 +1,12 @@
 import './zod-jitless';
 import { z } from 'zod';
 import { ASK_QUESTIONS } from '@/lib/ai/askQuestions';
-import { MAX_CITY_QUERY, MAX_PLAN_STRING } from './constants';
+import {
+  MAX_CITY_QUERY,
+  MAX_PLAN_STRING,
+  ROOM_SIZE_MAX_SQM,
+  ROOM_SIZE_MIN_SQM,
+} from './constants';
 
 /**
  * Every route parses its input with a strict schema: unknown fields are
@@ -10,13 +15,13 @@ import { MAX_CITY_QUERY, MAX_PLAN_STRING } from './constants';
  * profile, so nothing user-typed can reach the LLM prompt.
  */
 
-export const languageSchema = z.enum(['en', 'hi', 'te']);
+const languageSchema = z.enum(['en', 'hi', 'te']);
 
 /**
  * The closed set of quick questions. An enum, not a string: a caller cannot
  * send free text, so a prompt-injection payload is a 400 before any model call.
  */
-export const askQuestionSchema = z.enum(ASK_QUESTIONS);
+const askQuestionSchema = z.enum(ASK_QUESTIONS);
 
 /** Numeric query-string parser: rejects "", "  ", "1e999", "0x10", "abc". */
 const queryNumber = (min: number, max: number) =>
@@ -51,16 +56,16 @@ export const geocodeQuerySchema = z
   })
   .strict();
 
-export const homeTypeSchema = z.enum(['apartment', 'house', 'other']);
-export const windowsSchema = z.enum(['single', 'double', 'sealed', 'unknown']);
-export const kitchenVentilationSchema = z.enum([
+const homeTypeSchema = z.enum(['apartment', 'house', 'other']);
+const windowsSchema = z.enum(['single', 'double', 'sealed', 'unknown']);
+const kitchenVentilationSchema = z.enum([
   'chimney',
   'exhaustFan',
   'window',
   'none',
   'unknown',
 ]);
-export const commuteModeSchema = z.enum([
+const commuteModeSchema = z.enum([
   'walk',
   'cycle',
   'bus',
@@ -69,7 +74,7 @@ export const commuteModeSchema = z.enum([
   'car',
   'wfh',
 ]);
-export const budgetSchema = z.enum(['low', 'medium', 'high']);
+const budgetSchema = z.enum(['low', 'medium', 'high']);
 
 /** The quick profile. Session-only, held in React state, never sent to a DB. */
 export const profileSchema = z
@@ -86,7 +91,7 @@ export const profileSchema = z
     budget: budgetSchema,
     language: languageSchema,
     /** Optional so the HEPA sizing hint degrades gracefully. */
-    roomSizeSqm: z.number().min(5).max(200).optional(),
+    roomSizeSqm: z.number().min(ROOM_SIZE_MIN_SQM).max(ROOM_SIZE_MAX_SQM).optional(),
     symptoms: z.boolean(),
   })
   .strict();
@@ -114,13 +119,12 @@ export const planRequestSchema = z
   })
   .strict();
 
-export type PlanRequest = z.infer<typeof planRequestSchema>;
 
 const confidenceSchema = z.enum(['High', 'Medium', 'Low']);
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
 
-export const recommendationSchema = z
+const recommendationSchema = z
   .strictObject({
     title: shortText(120),
     detail: shortText(MAX_PLAN_STRING),

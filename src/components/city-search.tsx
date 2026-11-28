@@ -9,7 +9,7 @@ import type { GeocodeResult, Language } from '@/lib/shared/types';
 import { CityResults } from './location/city-results';
 import { GeoControls } from './location/geo-controls';
 
-export type { SelectedLocation };
+;
 
 interface CitySearchProps {
   lang: Language;

@@ -5,10 +5,10 @@
  * third-party call, and are never logged or persisted.
  */
 
-export const LAT_MIN = -90;
-export const LAT_MAX = 90;
-export const LON_MIN = -180;
-export const LON_MAX = 180;
+const LAT_MIN = -90;
+const LAT_MAX = 90;
+const LON_MIN = -180;
+const LON_MAX = 180;
 
 /** Round to 2 decimal places without float drift (e.g. 19.07609 -> 19.08). */
 export function roundCoord(value: number): number {

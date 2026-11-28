@@ -42,7 +42,7 @@ export function Banner({
  * Decorative loading block. Hidden from assistive
  * technology; the live status text carries the meaning.
  */
-export function Skeleton({ className = '' }: { className?: string }) {
+function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
@@ -84,36 +84,6 @@ export function BandChip({
       <span aria-hidden="true">{glyph}</span>
       <span>{label}</span>
     </span>
-  );
-}
-
-/**
- * Label + control wrapper with hint and error text
- * wired through ids for screen readers.
- */
-export function Field({
-  label,
-  hint,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  htmlFor?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="field-label" htmlFor={htmlFor}>
-        {label}
-      </label>
-      {children}
-      {hint ? (
-        <p className="hint" id={htmlFor ? `${htmlFor}-hint` : undefined}>
-          {hint}
-        </p>
-      ) : null}
-    </div>
   );
 }
 

@@ -12,7 +12,7 @@ import type { PlanRequestInput } from './plan-request-input';
 import { usePlanRequest, type PlanState } from './use-plan-request';
 
 /** The household defaults: a small urban family, no stated sensitivities. */
-export const DEFAULT_PROFILE: Profile = {
+const DEFAULT_PROFILE: Profile = {
   adults: 2,
   children: 1,
   elderly: 0,

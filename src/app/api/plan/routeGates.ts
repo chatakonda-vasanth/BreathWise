@@ -8,13 +8,13 @@ import { enforceRateLimit } from '@/lib/security/rateLimit';
 import { planRequestSchema } from '@/lib/shared/schemas';
 
 /** A request that passed every gate, or the response that rejected it. */
-export type PlanRequest = z.infer<typeof planRequestSchema>;
+type PlanRequest = z.infer<typeof planRequestSchema>;
 export type GateResult =
   | { ok: true; data: PlanRequest; limiterUnavailable: boolean }
   | { ok: false; response: Response };
 
 /** Map a body-read failure onto the client-facing error code. */
-export function bodyErrorCode(
+function bodyErrorCode(
   reason: 'too_large' | 'invalid_json' | 'unsupported_media_type',
 ): ErrorCode {
   if (reason === 'too_large') return 'body_too_large';

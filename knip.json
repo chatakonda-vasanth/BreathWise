@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/app/**/*.{ts,tsx}",
+    "public/sw.js",
+    "scripts/*.{mjs,sh}",
+    "tests/**/*.{test,spec}.ts"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "tests/**/*.ts",
+    "scripts/*.mjs",
+    "src/**/*.css"
+  ],
+  "ignoreDependencies": [
+    "@opennextjs/cloudflare",
+    "wrangler"
+  ],
+  "ignoreBinaries": [
+    "gitleaks"
+  ]
+}

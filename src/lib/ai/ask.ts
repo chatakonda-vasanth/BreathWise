@@ -12,7 +12,7 @@ import type { AnswerArgs, AnswerResult } from './askTypes';
 import { ASK_RESPONSE_SCHEMA, buildAskPrompt } from './askPrompt';
 import { fallbackAnswer } from './askFallback';
 
-export { ASK_TASK, ASK_RESPONSE_SCHEMA, buildAskPrompt, type AskPromptInput } from './askPrompt';
+export { ASK_RESPONSE_SCHEMA, buildAskPrompt } from './askPrompt';
 export { answerFromPlan } from './askFallback';
 
 /**
@@ -30,7 +30,7 @@ export { answerFromPlan } from './askFallback';
  *   sanitisation) and any failure returns the deterministic, labelled answer.
  */
 
-export type { AnswerArgs, AnswerResult, PlanAnswer } from './askTypes';
+export type { AnswerArgs, AnswerResult } from './askTypes';
 
 interface ValidatedAnswer {
   text?: string;

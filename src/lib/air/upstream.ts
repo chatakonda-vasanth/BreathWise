@@ -117,5 +117,4 @@ export function buildGeocodeUrl(query: string): string {
 }
 
 export type AirPayload = z.infer<typeof airResponseSchema>;
-export type GeocodePayload = z.infer<typeof geocodeResponseSchema>;
 export { airResponseSchema, geocodeResponseSchema };

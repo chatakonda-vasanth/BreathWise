@@ -7,7 +7,7 @@ import {
 } from './prompt';
 
 /** The fixed English clause sent for each question; nothing here is user text. */
-export const ASK_TASK: Record<AskQuestion, string> = {
+const ASK_TASK: Record<AskQuestion, string> = {
   safeWalkToSchool:
     'Is it safe for the children to walk to school today, and if not, what is the lowest-emission alternative?',
   whichRoomFirst:

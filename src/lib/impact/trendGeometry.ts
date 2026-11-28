@@ -15,7 +15,7 @@ export const CHART_PADDING = { top: 12, right: 8, bottom: 20, left: 34 } as cons
 const MIN_MAX_VALUE = 100;
 
 /** A point known to carry a numeric US AQI. */
-export type ChartPoint = AirPoint & { usAqi: number };
+type ChartPoint = AirPoint & { usAqi: number };
 
 export interface ChartGeometry {
   points: ChartPoint[];

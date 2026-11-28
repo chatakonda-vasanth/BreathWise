@@ -28,10 +28,11 @@
     "check:secrets-in-bundle": "node scripts/check-secrets-in-bundle.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:circular": "npx --yes madge@8.0.0 --circular --extensions ts,tsx src",
+    "check:knip": "knip --no-progress",
     "check": "npm run lint && npm run typecheck && npm run test",
     "test:security": "vitest run tests/security",
     "secrets:dir": "gitleaks dir . --no-banner --redact",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundles && npm run check:secrets-in-bundle"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:bundles && npm run check:secrets-in-bundle && npm run check:knip"
   },
   "dependencies": {
     "@upstash/ratelimit": "2.2.1",
@@ -53,6 +54,7 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.6",
     "eslint-plugin-react": "7.37.5",
+    "knip": "6.49.0",
     "postcss": "8.5.33",
     "prettier": "3.10.1",
     "tailwindcss": "4.3.5",

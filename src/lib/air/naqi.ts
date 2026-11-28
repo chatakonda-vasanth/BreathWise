@@ -48,7 +48,7 @@ const O3_BREAKPOINTS: readonly Breakpoint[] = [
   [749, 2000, 401, 500],
 ];
 
-export type NaqiPollutant = 'pm25' | 'pm10' | 'no2' | 'o3';
+type NaqiPollutant = 'pm25' | 'pm10' | 'no2' | 'o3';
 
 function subIndex(concentration: number, table: readonly Breakpoint[]): number {
   if (!Number.isFinite(concentration) || concentration < 0) return 0;

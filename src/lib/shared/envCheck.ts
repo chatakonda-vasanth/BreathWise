@@ -11,14 +11,14 @@ import { warnMemoryLimiterOnce } from '@/lib/security/rateLimit';
  * a leak in shared logs.
  */
 
-export const REQUIRED_ENV = [
+const REQUIRED_ENV = [
   'GEMINI_API_KEY',
   'GEMINI_MODEL',
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
 ] as const;
 
-export type RequiredEnvName = (typeof REQUIRED_ENV)[number];
+type RequiredEnvName = (typeof REQUIRED_ENV)[number];
 
 export type EnvSource = Record<string, string | undefined>;
 

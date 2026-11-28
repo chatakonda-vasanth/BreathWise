@@ -6,7 +6,7 @@ import { airResponseSchema, buildAirUrl, buildGeocodeUrl, fetchJson, geocodeResp
 import { toSnapshot } from './snapshot';
 
 export { deriveIndices, type DerivedIndices } from './indices';
-export { buildAirUrl, buildGeocodeUrl, fetchJson, UpstreamError } from './upstream';
+export { buildAirUrl, buildGeocodeUrl,  UpstreamError } from './upstream';
 
 const airCache = new Map<string, { expires: number; value: AirSnapshot }>();
 

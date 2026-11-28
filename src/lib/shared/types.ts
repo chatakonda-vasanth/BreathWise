@@ -52,7 +52,7 @@ export interface GeocodeResult {
   timezone: string;
 }
 
-export interface ImpactBlock {
+interface ImpactBlock {
   mechanism: string;
   estimatedReduction: string;
   assumption: string;

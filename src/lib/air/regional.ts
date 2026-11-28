@@ -16,7 +16,7 @@ import type { Language } from '@/lib/shared/types';
 
 export type RegionId = 'north' | 'west' | 'east' | 'south' | 'central' | 'other';
 export type Season = 'winter' | 'preMonsoon' | 'monsoon' | 'postMonsoon';
-export type HeatingFuel = 'biomass' | 'lpg' | 'electric' | 'mixed' | 'unknown';
+type HeatingFuel = 'biomass' | 'lpg' | 'electric' | 'mixed' | 'unknown';
 
 export interface RegionalContext {
   region: RegionId;

@@ -98,7 +98,7 @@ export interface OriginCheck {
  * Used for both sides of the comparison so a trailing slash, a path or a
  * different scheme cannot make two different origins look equal.
  */
-export function absoluteOrigin(value: string): string | null {
+function absoluteOrigin(value: string): string | null {
   try {
     const url = new URL(value.trim());
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;

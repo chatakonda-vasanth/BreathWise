@@ -6,7 +6,7 @@ import type { Language, Plan, Recommendation } from '@/lib/shared/types';
 import { SectionHeading } from '../ui';
 
 /** The four labelled impact fields every recommendation carries. */
-export function ImpactBlock({ item, lang }: { item: Recommendation; lang: Language }) {
+function ImpactBlock({ item, lang }: { item: Recommendation; lang: Language }) {
   return (
     <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-2)] p-3">
       <p className="text-xs font-bold uppercase tracking-wide">{t(lang, 'impact')}</p>
@@ -35,7 +35,7 @@ export function ImpactBlock({ item, lang }: { item: Recommendation; lang: Langua
 }
 
 /** One numbered recommendation with its impact explanation. */
-export function RecommendationCard({
+function RecommendationCard({
   item,
   lang,
   index,
@@ -76,7 +76,7 @@ export function PlanRecommendations({ plan, lang }: { plan: Plan; lang: Language
 }
 
 /** A titled list of recommendations, each numbered from one. */
-export function RecommendationSection({
+function RecommendationSection({
   id,
   title,
   items,

@@ -15,7 +15,7 @@
  */
 import { spawn } from 'node:child_process';
 import os from 'node:os';
-import { chromium } from 'playwright';
+import { chromium } from '@playwright/test';
 
 const url = process.argv[2] ?? 'http://127.0.0.1:3110/';
 const output = process.argv[3] ?? 'lighthouse-report';

@@ -4,7 +4,7 @@ import { EN } from './en';
 import { HI } from './hi';
 import { TE } from './te';
 
-export type { BandCopy, ItemCopy, LanguageCopy };
+export type { BandCopy, ItemCopy,  };
 
 /**
  * Deterministic, reviewed copy for the rule-based fallback plan.

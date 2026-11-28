@@ -74,7 +74,7 @@ const RECOMMENDATION_SCHEMA = {
 } as const;
 
 /** OpenAPI-subset response schema; keeps the model on the exact shape we parse. */
-export const RESPONSE_SCHEMA = {
+const RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     headline: STRING('One short sentence for today.'),

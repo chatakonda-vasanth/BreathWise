@@ -17,7 +17,7 @@ import { PlanRoutines } from './plan/plan-routines';
 import { PlanSummary } from './plan/plan-summary';
 import { PlanRecommendations } from './plan/recommendation-card';
 
-export { planToText } from '@/lib/ai/planText';
+;
 
 interface PlanViewProps {
   plan: Plan;

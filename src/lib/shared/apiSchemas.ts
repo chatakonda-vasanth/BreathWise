@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 /** Response contracts, validated on the client too (never trust a response). */
 
-export const airPointSchema = z
+const airPointSchema = z
   .object({
     time: z.string(),
     usAqi: z.number().nullable(),
@@ -14,7 +14,7 @@ export const airPointSchema = z
   })
   .strict();
 
-export const airSnapshotSchema = z
+const airSnapshotSchema = z
   .object({
     lat: z.number(),
     lon: z.number(),
@@ -28,7 +28,7 @@ export const airSnapshotSchema = z
   })
   .strict();
 
-export const derivedSchema = z
+const derivedSchema = z
   .object({
     usAqi: z.number(),
     usBand: z.enum([
@@ -59,10 +59,12 @@ export const derivedSchema = z
   })
   .strict();
 
+/** @public Response contract for /api/air, shared with the client guards. */
 export const airResponseSchema = z
   .object({ air: airSnapshotSchema, indices: derivedSchema })
   .strict();
 
+/** @public Response contract for /api/geocode. */
 export const geocodeResponseSchema = z
   .object({
     results: z.array(

@@ -9,7 +9,7 @@ import { createSampleSnapshot } from '@/lib/air/sampleData';
 import type { Language } from '@/lib/shared/types';
 
 /** Labelled sample snapshot, used only when live data is unavailable. */
-export function sampleResponse(): AirResponse {
+function sampleResponse(): AirResponse {
   const air = createSampleSnapshot();
   return { air, indices: deriveIndices(air) };
 }

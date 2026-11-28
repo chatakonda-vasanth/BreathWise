@@ -141,7 +141,7 @@ export function usBandToSeverity(band: UsBand): SeverityBand {
  * 22 µg/m³ ≈ 1 cigarette/day is a commonly cited approximation; it is always
  * presented with that caveat, never as a health measurement.
  */
-export const PM25_PER_CIGARETTE = 22;
+const PM25_PER_CIGARETTE = 22;
 
 /**
  * Rough daily cigarette equivalence used for
