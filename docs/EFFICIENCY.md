@@ -25,7 +25,7 @@ sum of node_modules.
 
 ### What changed
 
-1. **zod is server-only.** `src/lib/responseGuards.ts` replaces the three
+1. **zod is server-only.** `src/lib/shared/responseGuards.ts` replaces the three
    response schemas the browser used to parse: hand-written structural guards
    for `/api/air`, `/api/geocode` and `/api/plan`. The server still parses every
    input with zod, because that is the trust boundary; the browser only needs to
@@ -37,7 +37,7 @@ sum of node_modules.
 3. **The chart and the plan screen are separate chunks.** `next/dynamic` for
    `TrendChart` (only needed once air data exists) and `PlanView` (only reachable
    after a submit).
-4. **Upstream air data is cached for 10 minutes** (`src/lib/airCache.ts`), keyed
+4. **Upstream air data is cached for 10 minutes** (`src/lib/air/airCache.ts`), keyed
    by the rounded coordinate pair, caching the pending promise so concurrent
    requests share one fetch. A rejected fetch is never cached. Both `/api/air`
    and `/api/plan` use it, so the plan request made seconds after the air screen
@@ -49,7 +49,7 @@ sum of node_modules.
    any model call, so a blocked request never reaches the model either.
 6. **Caching headers are explicit.** `/_next/static/*` is
    `public, max-age=31536000, immutable` (verified with `curl -D -`), every
-   `/api/*` response is `no-store` (set in `src/lib/http.ts` and again in
+   `/api/*` response is `no-store` (set in `src/lib/shared/http.ts` and again in
    `src/proxy.ts`), and the service worker never intercepts `/api/`.
 
 ### Why 150 KiB was not reached

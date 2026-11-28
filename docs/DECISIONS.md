@@ -27,7 +27,7 @@
    new bucket. Outside production, `x-forwarded-for` is accepted as a last resort
    (leftmost entry, the one Vercel documents as the real client), and an
    unparseable address becomes one shared `unknown` bucket. IPs are hashed before
-   use as rate-limit keys, so no raw address is stored (`src/lib/clientIp.ts`).
+   use as rate-limit keys, so no raw address is stored (`src/lib/security/clientIp.ts`).
 7. **No CORS at all.** No `Access-Control-Allow-Origin` header is ever sent;
    `OPTIONS` on `/api/plan` returns 403.
 8. **Service worker caches the shell and static assets only.** `/api/*` is never
@@ -43,7 +43,7 @@
 11. **Upstash limiter calls are bounded at 1.5 s.** A hung limiter cannot hold a
     request open; the timeout is treated as "unreachable".
 12. **zod is a server dependency only.** The browser validates responses with
-    hand-written structural guards (`src/lib/responseGuards.ts`). Rationale: the
+    hand-written structural guards (`src/lib/shared/responseGuards.ts`). Rationale: the
     server parses untrusted input and must be strict; the browser only needs to
     refuse a malformed body before rendering it. Saves ~40 KiB of schema runtime
     on a mobile connection, and the same fixtures pin both sides.
@@ -86,9 +86,12 @@
 ```
 src/app/            layout, page, globals.css, API routes (air, geocode, health, plan)
 src/components/     client UI (app shell, air panel, chart, profile, plan)
-src/lib/            aqi, naqi, geo, schemas, prompt, gemini, planService,
-                    fallbackPlan, planContent, i18n, rateLimit, sanitize,
-                    security, http, air, indices, client
+src/lib/air/        AQI/NAQI, geocoding, regional context and air snapshots
+src/lib/ai/         Gemini prompts, plan/ask services, fallback copy and plan text
+src/lib/security/   rate limits, sanitisation, request-body limits, client IP
+src/lib/impact/     with/without comparison and "why this plan fits you"
+src/lib/shared/     schemas, constants, Result, HTTP/env helpers, client types
+src/lib/i18n/       UI strings and lazy-loaded language packs
 src/proxy.ts        per-request CSP nonce + security headers (Next 16 name)
 public/             manifest.webmanifest, sw.js, generated icons
 tests/unit/         Vitest suites (offline)
@@ -108,12 +111,12 @@ its assumption.
 
 | Requirement                                                                               | Where it lives                                                                                                                                                          | What proves it                                                                                                                               |
 | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Location tailoring without sending a place to the model                                   | `src/lib/regional.ts` — static coarse-region + season table, browser-only; documented in [`PRIVACY.md`](PRIVACY.md)                                                     | `tests/unit/regional.test.ts` (region/season/burning/inversion cases; asserts `prompt.ts`, `planService.ts` and `gemini.ts` never import it) |
-| Lifestyle tailoring, visibly used                                                         | `src/lib/impact.ts` (`whyThisPlanFits`), rendered by `src/components/personal-context.tsx` (`WhyThisPlanFits`) and passed `profile` from `src/components/app-shell.tsx` | `tests/unit/impact.test.ts` (“names every household input that shaped the plan”)                                                             |
+| Location tailoring without sending a place to the model                                   | `src/lib/air/regional.ts` — static coarse-region + season table, browser-only; documented in [`PRIVACY.md`](PRIVACY.md)                                                     | `tests/unit/regional.test.ts` (region/season/burning/inversion cases; asserts `prompt.ts`, `planService.ts` and `gemini.ts` never import it) |
+| Lifestyle tailoring, visibly used                                                         | `src/lib/impact/index.ts` (`whyThisPlanFits`), rendered by `src/components/personal-context.tsx` (`WhyThisPlanFits`) and passed `profile` from `src/components/app-shell.tsx` | `tests/unit/impact.test.ts` (“names every household input that shaped the plan”)                                                             |
 | “Why this plan fits you” summary                                                          | `WhyThisPlanFits` card on every plan                                                                                                                                    | `tests/unit/impact.test.ts`; `tests/e2e/flow.spec.ts` asserts the card renders                                                               |
-| Direct impact with a deterministic with/without estimate                                  | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact.ts`, rendered by `WithWithoutCard`                                                                           | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing)                                                             |
-| “Rough estimate” next to every number, in English, Hindi and Telugu                       | `ImpactLabels.roughEstimate` in `src/lib/impact.ts`, printed beside each value                                                                                          | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”)                                                          |
-| Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx`                                           | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan                    |
+| Direct impact with a deterministic with/without estimate                                  | `compareWithWithout` + `IMPACT_FACTORS` in `src/lib/impact/index.ts`, rendered by `WithWithoutCard`                                                                           | `tests/unit/impact.test.ts` (AQI 0, 500+, no profile, each budget, each glazing)                                                             |
+| “Rough estimate” next to every number, in English, Hindi and Telugu                       | `ImpactLabels.roughEstimate` in `src/lib/impact/index.ts`, printed beside each value                                                                                          | `tests/unit/impact.test.ts` (“labels the estimate as rough in all three languages”)                                                          |
+| Direct Impact block (mechanism, estimate, assumption, confidence) on every recommendation | `Recommendation.impact` in `src/lib/shared/types.ts`; enforced by the response schema and rendered in `src/components/plan-view.tsx`                                           | `tests/unit/schemas.test.ts`, `tests/unit/fallback.test.ts`; `tests/e2e/flow.spec.ts` asserts “Direct impact” on the plan                    |
 | Community checklist (school, workplace, resident association, no-burning, carpool)        | `communityItems` in `src/lib/i18n/index.ts`, rendered in “Community mode”                                                                                                     | `tests/unit/keyHygiene.test.ts` (every UI key exists in all three languages); e2e checks the checklist is interactive and shareable          |
-| Conservative, labelled regional and impact claims                                         | Every regional note and impact factor states its assumption; see `src/lib/regional.ts`, `src/lib/impact.ts`, `src/lib/fallbackPlan.ts`                                  | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present)                          |
+| Conservative, labelled regional and impact claims                                         | Every regional note and impact factor states its assumption; see `src/lib/air/regional.ts`, `src/lib/impact/index.ts`, `src/lib/ai/fallbackPlan.ts`                                  | `tests/unit/impact.test.ts` (each step has an assumption), `tests/unit/regional.test.ts` (assumption label present)                          |
 

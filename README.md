@@ -88,7 +88,7 @@ data it uses an explicitly labelled sample snapshot. Node 20+.
 |---|---|---|
 | Code quality | `npm run lint && npm run typecheck && npm run check:knip` | eslint, tsc and knip exit 0 |
 | Testing | `npm test` | 34 test files, 441 tests passed; coverage 96.52% / 92.49% / 99.63% / 98.38% |
-| End-to-end | `npm run build && npm run test:e2e` | 43 Playwright tests passed |
+| End-to-end | `npm run build && npm run test:e2e` | 43 Playwright tests (CI) |
 | Security | `npm run test:security` | 10 files, 88 tests passed |
 | Supply chain | `npm audit --audit-level=low` | found 0 vulnerabilities |
 | Secrets | `npm run secrets` / `secrets:dir` | no leaks |

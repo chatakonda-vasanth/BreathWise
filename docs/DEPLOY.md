@@ -78,7 +78,7 @@ crash.
 ### Deployment on Freebuff Sites (Workers)
 
 Secrets are stored in **Sites → Secrets** for each environment, never in a file
-in the image. The Worker reads them at request time: `src/lib/env.ts` looks them
+in the image. The Worker reads them at request time: `src/lib/shared/env.ts` looks them
 up through a dynamic `process.env[name]` so the bundler cannot fold a value into
 the deployed script. `APP_ORIGIN` is injected by the platform, so the same build
 serves preview and production correctly.
