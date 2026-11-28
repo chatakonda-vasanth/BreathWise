@@ -20,11 +20,13 @@ export default defineConfig({
         // schema test but attributed to a module with no callable surface.
         'src/lib/zod-jitless.ts',
       ],
+      // Locked to the measured totals after the split. A drop of more than a
+      // fraction of a percent fails the build instead of silently eroding it.
       thresholds: {
-        lines: 90,
-        functions: 90,
-        statements: 90,
-        branches: 85,
+        lines: 98,
+        functions: 99,
+        statements: 96,
+        branches: 92,
       },
     },
   },

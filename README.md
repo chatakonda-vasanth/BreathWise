@@ -20,23 +20,23 @@ file that implements it and a test that would fail if the feature were removed.
 
 | Statement phrase | How the product implements it | Where it lives | Test that proves it |
 |---|---|---|---|
-| **GenAI-powered assistant** | A Gemini `generateContent` call with a fixed system prompt, a strict structured-output schema and no tools; a validated model plan, or the labelled rule-based plan on any failure. | `src/lib/gemini.ts`, `src/lib/prompt.ts`, `src/lib/planService.ts`, `src/lib/ask.ts` | `tests/unit/gemini.test.ts`, `tests/unit/planService.test.ts`, `tests/unit/ask.test.ts` |
-| **Helps families and communities** | A household quick profile plus a "Community mode" checklist for school, workplace, resident association and neighbourhood. | `src/components/profile-form.tsx`, `src/lib/schemas.ts`, `src/lib/i18n/index.ts` | `tests/unit/schemas.test.ts`, `tests/unit/i18nPacks.test.ts`, `tests/security/keyHygiene.test.ts` |
-| **Navigate severe winter smog and urban air pollution** | Both AQI standards are computed locally (US EPA AQI and India CPCB NAQI, worst sub-index wins), with winter inversion and residue-burning windows flagged per coarse region and season. | `src/lib/aqi.ts`, `src/lib/naqi.ts`, `src/lib/regional.ts`, `src/lib/indices.ts` | `tests/unit/aqi.test.ts`, `tests/unit/naqi.test.ts`, `tests/unit/regional.test.ts` |
-| **Low-emission daily routines** | School run, commute, mask and exercise guidance, best outdoor window, and travel alternatives chosen from commute mode and budget. | `src/lib/prompt.ts`, `src/lib/planContent/`, `src/lib/gemini.ts` | `tests/unit/fallback.test.ts`, `tests/unit/schemas.test.ts` |
-| **Indoor air quality hacks** | 3–8 indoor hacks, each with mechanism, estimated reduction, assumption and confidence; HEPA CADR sizing hint when room size is known. | `src/lib/gemini.ts`, `src/lib/planContent/`, `src/lib/fallbackPlan.ts` | `tests/unit/fallback.test.ts`, `tests/unit/ask.test.ts` |
-| **Sustainable alternatives** | 2–6 sustainable alternatives, each with its own direct-impact block. | `src/lib/gemini.ts`, `src/lib/planContent/`, `src/components/plan-view.tsx` | `tests/unit/fallback.test.ts`, `tests/unit/schemas.test.ts` |
-| **Tailored to their location** | Air data and both indices come from rounded coordinates; coarse-region + season context is added in the browser; the place name is never sent to the model. | `src/lib/geo.ts`, `src/lib/regional.ts`, `src/lib/air.ts`, `src/app/api/air/route.ts` | `tests/unit/regional.test.ts`, `tests/security/prompt.test.ts` |
-| **Tailored to their lifestyle** | The enumerated profile is sent in the prompt, and "Why this plan fits you" names every household input that changed the answer. | `src/lib/schemas.ts`, `src/lib/prompt.ts`, `src/lib/impact.ts` | `tests/unit/impact.test.ts`, `tests/security/prompt.test.ts` |
-| **Clearly explaining the direct impact of their choices** | Every recommendation carries a Direct impact block; the plan adds a deterministic with/without estimate labelled "rough estimate" in all three languages. | `src/lib/types.ts`, `src/lib/impact.ts`, `src/components/plan-view.tsx` | `tests/unit/impact.test.ts`, `tests/unit/schemas.test.ts` |
+| **GenAI-powered assistant** | A Gemini `generateContent` call with a fixed system prompt, a strict structured-output schema and no tools; a validated model plan, or the labelled rule-based plan on any failure. | `src/lib/ai/gemini.ts`, `src/lib/ai/prompt.ts`, `src/lib/ai/planService.ts`, `src/lib/ai/ask.ts` | `tests/unit/gemini.test.ts`, `tests/unit/planService.test.ts`, `tests/unit/ask.test.ts` |
+| **Helps families and communities** | A household quick profile plus a "Community mode" checklist for school, workplace, resident association and neighbourhood. | `src/components/profile-form.tsx`, `src/lib/shared/schemas.ts`, `src/lib/i18n/index.ts` | `tests/unit/schemas.test.ts`, `tests/unit/i18nPacks.test.ts`, `tests/security/keyHygiene.test.ts` |
+| **Navigate severe winter smog and urban air pollution** | Both AQI standards are computed locally (US EPA AQI and India CPCB NAQI, worst sub-index wins), with winter inversion and residue-burning windows flagged per coarse region and season. | `src/lib/air/aqi.ts`, `src/lib/air/naqi.ts`, `src/lib/air/regional.ts`, `src/lib/air/indices.ts` | `tests/unit/aqi.test.ts`, `tests/unit/naqi.test.ts`, `tests/unit/regional.test.ts` |
+| **Low-emission daily routines** | School run, commute, mask and exercise guidance, best outdoor window, and travel alternatives chosen from commute mode and budget. | `src/lib/ai/prompt.ts`, `src/lib/ai/planContent/`, `src/lib/ai/gemini.ts` | `tests/unit/fallback.test.ts`, `tests/unit/schemas.test.ts` |
+| **Indoor air quality hacks** | 3–8 indoor hacks, each with mechanism, estimated reduction, assumption and confidence; HEPA CADR sizing hint when room size is known. | `src/lib/ai/gemini.ts`, `src/lib/ai/planContent/`, `src/lib/ai/fallbackPlan.ts` | `tests/unit/fallback.test.ts`, `tests/unit/ask.test.ts` |
+| **Sustainable alternatives** | 2–6 sustainable alternatives, each with its own direct-impact block. | `src/lib/ai/gemini.ts`, `src/lib/ai/planContent/`, `src/components/plan-view.tsx` | `tests/unit/fallback.test.ts`, `tests/unit/schemas.test.ts` |
+| **Tailored to their location** | Air data and both indices come from rounded coordinates; coarse-region + season context is added in the browser; the place name is never sent to the model. | `src/lib/air/geo.ts`, `src/lib/air/regional.ts`, `src/lib/air/air.ts`, `src/app/api/air/route.ts` | `tests/unit/regional.test.ts`, `tests/security/prompt.test.ts` |
+| **Tailored to their lifestyle** | The enumerated profile is sent in the prompt, and "Why this plan fits you" names every household input that changed the answer. | `src/lib/shared/schemas.ts`, `src/lib/ai/prompt.ts`, `src/lib/impact/index.ts` | `tests/unit/impact.test.ts`, `tests/security/prompt.test.ts` |
+| **Clearly explaining the direct impact of their choices** | Every recommendation carries a Direct impact block; the plan adds a deterministic with/without estimate labelled "rough estimate" in all three languages. | `src/lib/shared/types.ts`, `src/lib/impact/index.ts`, `src/components/plan-view.tsx` | `tests/unit/impact.test.ts`, `tests/unit/schemas.test.ts` |
 
 ## How the GenAI works
 
-- **Integration:** `src/lib/gemini.ts` is the only module that talks to the model:
+- **Integration:** `src/lib/ai/gemini.ts` is the only module that talks to the model:
   one `fetch`, no SDK, pinned host, API key in `x-goog-api-key`, `toolConfig`
   forced to `NONE`, `redirect: 'manual'`, per-attempt `AbortSignal.timeout`,
   JSON mode plus `responseSchema`.
-- **System prompt:** `SYSTEM_INSTRUCTION` in `src/lib/prompt.ts` sets nine hard
+- **System prompt:** `SYSTEM_INSTRUCTION` in `src/lib/ai/prompt.ts` sets nine hard
   rules (ground claims in supplied data, state assumptions, treat data blocks as
   untrusted, no medical advice, refuse off-topic, no tools, Direct impact on
   every recommendation, prefer free/low-cost, JSON only).
@@ -47,7 +47,7 @@ file that implements it and a test that would fail if the feature were removed.
   parse, script check, length caps, sanitisation; same-origin, IP rate limit,
   daily LLM cap, kill switch, time budgets, one retry; honest `generatedBy`
   provenance.
-- **Fallback:** `src/lib/fallbackPlan.ts` + `src/lib/planContent/` build a
+- **Fallback:** `src/lib/ai/fallbackPlan.ts` + `src/lib/ai/planContent/` build a
   complete reviewed plan for six severity bands in English, Hindi and Telugu.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture and
@@ -70,7 +70,8 @@ data it uses an explicitly labelled sample snapshot. Node 20+.
 | Command | What it does |
 |---|---|
 | `npm run dev` / `build` / `start` | Dev server / production build / serve |
-| `npm run lint` | ESLint flat config, complexity ≤ 10 |
+| `npm run lint` | ESLint flat config, complexity ≤ 10, files ≤ 250 lines, functions ≤ 40 lines |
+| `npm run check:knip` | Dead files, exports and dependencies |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
 | `npm test` | Vitest unit + security suites with coverage gates |
 | `npm run test:e2e` | Playwright smoke tests (needs a build) |
@@ -85,9 +86,9 @@ data it uses an explicitly labelled sample snapshot. Node 20+.
 
 | Area | Command | Latest real result |
 |---|---|---|
-| Code quality | `npm run lint && npm run typecheck` | eslint exit 0, tsc exit 0 |
-| Testing | `npm test` | 33 test files, 439 tests; coverage 96.47% / 92.51% / 99.62% / 98.36% |
-| End-to-end | `npm run build && npm run test:e2e` | 42 Playwright tests passed |
+| Code quality | `npm run lint && npm run typecheck && npm run check:knip` | eslint, tsc and knip exit 0 |
+| Testing | `npm test` | 34 test files, 441 tests passed; coverage 96.52% / 92.49% / 99.63% / 98.38% |
+| End-to-end | `npm run build && npm run test:e2e` | 43 Playwright tests passed |
 | Security | `npm run test:security` | 10 files, 88 tests passed |
 | Supply chain | `npm audit --audit-level=low` | found 0 vulnerabilities |
 | Secrets | `npm run secrets` / `secrets:dir` | no leaks |

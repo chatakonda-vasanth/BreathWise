@@ -146,6 +146,20 @@ test('the profile step can be skipped', async ({ page }) => {
   await expect(page.getByTestId('local-context')).toBeVisible();
 });
 
+test('a fixed quick question is answered by the labelled fallback', async ({ page }) => {
+  await chooseDelhi(page);
+  await skipToPlan(page);
+
+  const ask = page.locator('section[aria-labelledby="ask-heading"]');
+  await ask
+    .getByRole('button', { name: 'Is it safe to walk to school today?' })
+    .click();
+
+  await expect(ask.getByRole('status')).toBeVisible({ timeout: 20_000 });
+  await expect(ask.getByRole('status')).toContainText(/school/i);
+  await expect(ask.getByText(/AI answer unavailable/i)).toBeVisible();
+});
+
 test('the community checklist is interactive and the share link carries the plan', async ({
   page,
 }) => {
