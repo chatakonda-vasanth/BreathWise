@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET as getHealth } from '@/app/api/health/route';
-import { RATE_LIMITS } from '@/lib/constants';
-import { __resetRateLimitState } from '@/lib/rateLimit';
+import { RATE_LIMITS } from '@/lib/shared/constants';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
 
 /**
  * /api/health is public, so its contract is deliberately tiny: one field, no

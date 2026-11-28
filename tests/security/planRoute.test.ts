@@ -7,10 +7,10 @@ import {
   LLM_TOTAL_BUDGET_MS,
   ROUTE_RESPONSE_MARGIN_MS,
   UPSTREAM_TIMEOUT_MS,
-} from '@/lib/constants';
+} from '@/lib/shared/constants';
 import { fallbackReasonLabel, t } from '@/lib/i18n';
-import { __resetRateLimitState } from '@/lib/rateLimit';
-import { planResponseSchema } from '@/lib/schemas';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
+import { planResponseSchema } from '@/lib/shared/schemas';
 import { PROFILE } from '../fixtures';
 
 /**

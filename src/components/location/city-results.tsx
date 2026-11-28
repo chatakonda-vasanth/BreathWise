@@ -1,8 +1,8 @@
 'use client';
 
-import { roundCoord } from '@/lib/geo';
-import type { SelectedLocation } from '@/lib/location';
-import type { GeocodeResult } from '@/lib/types';
+import { roundCoord } from '@/lib/air/geo';
+import type { SelectedLocation } from '@/lib/shared/location';
+import type { GeocodeResult } from '@/lib/shared/types';
 
 /** "City · Region · Country", capped so a long upstream name cannot run on. */
 function labelOf(result: GeocodeResult): string {

@@ -4,19 +4,19 @@ import {
   answerFromPlan,
   buildAskPrompt,
   generateAnswer,
-} from '@/lib/ask';
-import { ASK_QUESTIONS, isAskQuestion } from '@/lib/askQuestions';
-import { buildFallbackPlan } from '@/lib/fallbackPlan';
-import { deriveIndices } from '@/lib/indices';
-import { __resetRateLimitState } from '@/lib/rateLimit';
+} from '@/lib/ai/ask';
+import { ASK_QUESTIONS, isAskQuestion } from '@/lib/ai/askQuestions';
+import { buildFallbackPlan } from '@/lib/ai/fallbackPlan';
+import { deriveIndices } from '@/lib/air/indices';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
 import {
   answerResponseSchema,
   planAnswerSchema,
   planRequestSchema,
   type Profile,
-} from '@/lib/schemas';
-import { scriptMatches } from '@/lib/sanitize';
-import type { Language } from '@/lib/types';
+} from '@/lib/shared/schemas';
+import { scriptMatches } from '@/lib/security/sanitize';
+import type { Language } from '@/lib/shared/types';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 /**
@@ -415,7 +415,7 @@ describe('answer response guard and question predicate', () => {
   };
 
   it('accepts a complete body and rejects each broken variant', async () => {
-    const { isAnswerResponse } = await import('@/lib/responseGuards');
+    const { isAnswerResponse } = await import('@/lib/shared/responseGuards');
     expect(isAnswerResponse(valid)).toBe(true);
 
     const broken = [

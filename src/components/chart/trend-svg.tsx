@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChartGeometry } from '@/lib/trendGeometry';
+import type { ChartGeometry } from '@/lib/impact/trendGeometry';
 
 /** Horizontal grid lines and their axis values. */
 function Grid({ geometry }: { geometry: ChartGeometry }) {

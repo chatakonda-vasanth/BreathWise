@@ -9,7 +9,7 @@ import {
   usBand,
   usBandToSeverity,
   worseBand,
-} from '@/lib/aqi';
+} from '@/lib/air/aqi';
 
 describe('US AQI computation', () => {
   it('maps PM2.5 breakpoints to the EPA index', () => {

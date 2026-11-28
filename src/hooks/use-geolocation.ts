@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { roundCoord } from '@/lib/geo';
+import { roundCoord } from '@/lib/air/geo';
 import { t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 
 /**
  * Opt-in browser geolocation.

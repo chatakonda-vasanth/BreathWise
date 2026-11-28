@@ -1,6 +1,6 @@
 'use client';
 
-import type { SeverityBand } from '@/lib/types';
+import type { SeverityBand } from '@/lib/shared/types';
 
 /**
  * Inline message. `live` turns it into an ARIA live

@@ -1,8 +1,8 @@
 'use client';
 
-import { BAND_COLOURS } from '@/lib/aqi';
+import { BAND_COLOURS } from '@/lib/air/aqi';
 import { SEVERITY_LABELS, t } from '@/lib/i18n';
-import type { Language, SeverityBand } from '@/lib/types';
+import type { Language, SeverityBand } from '@/lib/shared/types';
 import { BandChip, SectionHeading } from '../ui';
 
 /**

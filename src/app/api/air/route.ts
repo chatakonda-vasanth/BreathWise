@@ -1,10 +1,10 @@
-import { deriveIndices, getAirSnapshot } from '@/lib/air';
-import { withAirCache } from '@/lib/airCache';
-import { RATE_LIMITS } from '@/lib/constants';
-import { getClientIp } from '@/lib/clientIp';
-import { errorResponse, jsonResponse, logEvent } from '@/lib/http';
-import { enforceRateLimit } from '@/lib/rateLimit';
-import { airQuerySchema } from '@/lib/schemas';
+import { deriveIndices, getAirSnapshot } from '@/lib/air/air';
+import { withAirCache } from '@/lib/air/airCache';
+import { RATE_LIMITS } from '@/lib/shared/constants';
+import { getClientIp } from '@/lib/security/clientIp';
+import { errorResponse, jsonResponse, logEvent } from '@/lib/shared/http';
+import { enforceRateLimit } from '@/lib/security/rateLimit';
+import { airQuerySchema } from '@/lib/shared/schemas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

@@ -1,9 +1,9 @@
 'use client';
 
-import type { AirResponse } from '@/lib/apiSchemas';
-import { BAND_COLOURS } from '@/lib/aqi';
+import type { AirResponse } from '@/lib/shared/apiSchemas';
+import { BAND_COLOURS } from '@/lib/air/aqi';
 import { NAQI_LABELS, SEVERITY_LABELS, US_BAND_LABELS, t } from '@/lib/i18n';
-import type { AirSnapshot, Language } from '@/lib/types';
+import type { AirSnapshot, Language } from '@/lib/shared/types';
 import { BandChip } from '../ui';
 
 /** The headline number: US AQI, its band and yesterday's change. */

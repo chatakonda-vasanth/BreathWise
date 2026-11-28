@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildUserPrompt, SYSTEM_INSTRUCTION } from '@/lib/prompt';
-import { deriveIndices } from '@/lib/indices';
-import type { AirSnapshot } from '@/lib/types';
+import { buildUserPrompt, SYSTEM_INSTRUCTION } from '@/lib/ai/prompt';
+import { deriveIndices } from '@/lib/air/indices';
+import type { AirSnapshot } from '@/lib/shared/types';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 function promptFor(

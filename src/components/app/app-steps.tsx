@@ -1,16 +1,16 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { BAND_COLOURS } from '@/lib/aqi';
-import type { AskQuestion } from '@/lib/askQuestions';
+import { BAND_COLOURS } from '@/lib/air/aqi';
+import type { AskQuestion } from '@/lib/ai/askQuestions';
 import type { AirState } from '@/hooks/use-air-data';
 import type { AppFlow } from '@/hooks/use-app-flow';
 import type { PlanState } from '@/hooks/use-plan-request';
-import type { AirResponse } from '@/lib/apiSchemas';
+import type { AirResponse } from '@/lib/shared/apiSchemas';
 import { SEVERITY_LABELS, t } from '@/lib/i18n';
-import type { SelectedLocation } from '@/lib/location';
-import type { PlanAnswerBody, Profile } from '@/lib/schemas';
-import type { Language, Plan } from '@/lib/types';
+import type { SelectedLocation } from '@/lib/shared/location';
+import type { PlanAnswerBody, Profile } from '@/lib/shared/schemas';
+import type { Language, Plan } from '@/lib/shared/types';
 import { AirPanel } from '../air-panel';
 import { CitySearch } from '../city-search';
 import { ProfileForm } from '../profile-form';

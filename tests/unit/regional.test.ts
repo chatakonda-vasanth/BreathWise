@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coarseRegion, regionalContext, regionalLabels, seasonFor } from '@/lib/regional';
+import { coarseRegion, regionalContext, regionalLabels, seasonFor } from '@/lib/air/regional';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -92,13 +92,13 @@ describe('regional context', () => {
 });
 
 describe('the regional layer never reaches the model', () => {
-  const root = join(process.cwd(), 'src', 'lib');
+  const root = join(process.cwd(), 'src', 'lib', 'ai');
 
   it('is not imported by the prompt builder, planner or Gemini client', () => {
     for (const file of ['prompt.ts', 'planService.ts', 'gemini.ts']) {
       const source = readFileSync(join(root, file), 'utf8');
-      expect(source).not.toMatch(/from '\.\/regional'/);
-      expect(source).not.toMatch(/from '\.\/impact'/);
+      expect(source).not.toMatch(/from ['"][^'"]*regional['"]/);
+      expect(source).not.toMatch(/from ['"][^'"]*impact['"]/);
     }
   });
 });

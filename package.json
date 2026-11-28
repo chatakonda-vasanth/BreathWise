@@ -1,7 +1,7 @@
 {
   "name": "urban-air-quality-assistant",
   "version": "1.0.0",
-  "description": "Urban Air Quality Assistant \u2014 GenAI guidance for smog days: low-emission daily routines, indoor air quality hacks and sustainable alternatives tailored to your location and lifestyle, with the direct impact of each choice explained.",
+  "description": "Urban Air Quality Assistant — GenAI guidance for smog days: low-emission daily routines, indoor air quality hacks and sustainable alternatives tailored to your location and lifestyle, with the direct impact of each choice explained.",
   "private": true,
   "type": "module",
   "engines": {
@@ -27,6 +27,7 @@
     "check:bundles": "node scripts/check-client-bundles.mjs",
     "check:secrets-in-bundle": "node scripts/check-secrets-in-bundle.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "check:circular": "npx --yes madge@8.0.0 --circular --extensions ts,tsx src",
     "check": "npm run lint && npm run typecheck && npm run test",
     "test:security": "vitest run tests/security",
     "secrets:dir": "gitleaks dir . --no-banner --redact",

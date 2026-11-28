@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { useGeolocation } from '@/hooks/use-geolocation';
-import { searchCities } from '@/lib/client';
+import { searchCities } from '@/lib/shared/client';
 import { t } from '@/lib/i18n';
-import type { SelectedLocation } from '@/lib/location';
-import type { GeocodeResult, Language } from '@/lib/types';
+import type { SelectedLocation } from '@/lib/shared/location';
+import type { GeocodeResult, Language } from '@/lib/shared/types';
 import { CityResults } from './location/city-results';
 import { GeoControls } from './location/geo-controls';
 

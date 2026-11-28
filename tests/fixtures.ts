@@ -1,5 +1,5 @@
-import { pm25UsAqi } from '@/lib/aqi';
-import type { AirPoint, AirSnapshot } from '@/lib/types';
+import { pm25UsAqi } from '@/lib/air/aqi';
+import type { AirPoint, AirSnapshot } from '@/lib/shared/types';
 
 function series(pm25Values: number[], startHour: number): AirPoint[] {
   return pm25Values.map((pm25, index) => ({

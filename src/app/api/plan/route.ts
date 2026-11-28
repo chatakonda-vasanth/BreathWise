@@ -1,27 +1,27 @@
 import type { NextRequest } from 'next/server';
 import type { z } from 'zod';
-import { deriveIndices, getAirSnapshot, UpstreamError } from '@/lib/air';
-import { withAirCache } from '@/lib/airCache';
-import { createSampleSnapshot } from '@/lib/sampleData';
+import { deriveIndices, getAirSnapshot, UpstreamError } from '@/lib/air/air';
+import { withAirCache } from '@/lib/air/airCache';
+import { createSampleSnapshot } from '@/lib/air/sampleData';
 import {
   FUNCTION_MAX_DURATION_S,
   MAX_BODY_BYTES,
   RATE_LIMITS,
   ROUTE_RESPONSE_MARGIN_MS,
-} from '@/lib/constants';
-import { getClientIp } from '@/lib/clientIp';
+} from '@/lib/shared/constants';
+import { getClientIp } from '@/lib/security/clientIp';
 import {
   checkOrigin,
   errorResponse,
   jsonResponse,
   logEvent,
   type ErrorCode,
-} from '@/lib/http';
-import { readJsonBody } from '@/lib/requestBody';
-import { generateAnswer, type AnswerResult } from '@/lib/ask';
-import { generatePlan, type PlanResult } from '@/lib/planService';
-import { enforceRateLimit } from '@/lib/rateLimit';
-import { planRequestSchema } from '@/lib/schemas';
+} from '@/lib/shared/http';
+import { readJsonBody } from '@/lib/security/requestBody';
+import { generateAnswer, type AnswerResult } from '@/lib/ai/ask';
+import { generatePlan, type PlanResult } from '@/lib/ai/planService';
+import { enforceRateLimit } from '@/lib/security/rateLimit';
+import { planRequestSchema } from '@/lib/shared/schemas';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

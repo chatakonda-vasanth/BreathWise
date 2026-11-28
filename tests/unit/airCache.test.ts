@@ -4,8 +4,8 @@ import {
   airCacheSize,
   resetAirCache,
   withAirCache,
-} from '@/lib/airCache';
-import type { AirSnapshot } from '@/lib/types';
+} from '@/lib/air/airCache';
+import type { AirSnapshot } from '@/lib/shared/types';
 import { SNAPSHOT } from '../fixtures';
 
 /**

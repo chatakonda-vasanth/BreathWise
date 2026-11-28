@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readEnv } from '@/lib/env';
+import { readEnv } from '@/lib/shared/env';
 
 /**
  * Regression guard for the deployment leak: Next replaces a *literal*

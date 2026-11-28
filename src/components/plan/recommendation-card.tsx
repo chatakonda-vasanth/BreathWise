@@ -1,8 +1,8 @@
 'use client';
 
-import { confidenceLabel } from '@/lib/planText';
+import { confidenceLabel } from '@/lib/ai/planText';
 import { t } from '@/lib/i18n';
-import type { Language, Plan, Recommendation } from '@/lib/types';
+import type { Language, Plan, Recommendation } from '@/lib/shared/types';
 import { SectionHeading } from '../ui';
 
 /** The four labelled impact fields every recommendation carries. */

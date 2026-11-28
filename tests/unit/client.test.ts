@@ -5,8 +5,8 @@ import {
   requestAnswer,
   requestPlan,
   searchCities,
-} from '@/lib/client';
-import { deriveIndices } from '@/lib/indices';
+} from '@/lib/shared/client';
+import { deriveIndices } from '@/lib/air/indices';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 /**

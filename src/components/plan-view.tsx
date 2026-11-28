@@ -1,10 +1,10 @@
 'use client';
 
-import type { AskQuestion } from '@/lib/askQuestions';
+import type { AskQuestion } from '@/lib/ai/askQuestions';
 import { t } from '@/lib/i18n';
-import { planToText, whatsappShareHref } from '@/lib/planText';
-import type { PlanAnswerBody, Profile } from '@/lib/schemas';
-import type { Language, Plan } from '@/lib/types';
+import { planToText, whatsappShareHref } from '@/lib/ai/planText';
+import type { PlanAnswerBody, Profile } from '@/lib/shared/schemas';
+import type { Language, Plan } from '@/lib/shared/types';
 import { useCopy } from '@/hooks/use-copy';
 import { useSpeech } from '@/hooks/use-speech';
 import { CommunityChecklist } from './plan/community-checklist';
@@ -17,7 +17,7 @@ import { PlanRoutines } from './plan/plan-routines';
 import { PlanSummary } from './plan/plan-summary';
 import { PlanRecommendations } from './plan/recommendation-card';
 
-export { planToText } from '@/lib/planText';
+export { planToText } from '@/lib/ai/planText';
 
 interface PlanViewProps {
   plan: Plan;

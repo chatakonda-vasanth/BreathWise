@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET as getAir } from '@/app/api/air/route';
 import { GET as getGeocode } from '@/app/api/geocode/route';
 import { POST as postPlan } from '@/app/api/plan/route';
-import { RATE_LIMITS } from '@/lib/constants';
-import { __resetRateLimitState } from '@/lib/rateLimit';
-import { planResponseSchema } from '@/lib/schemas';
+import { RATE_LIMITS } from '@/lib/shared/constants';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
+import { planResponseSchema } from '@/lib/shared/schemas';
 import { PROFILE } from '../fixtures';
 
 /**

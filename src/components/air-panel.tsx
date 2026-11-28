@@ -1,9 +1,9 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { AirResponse } from '@/lib/apiSchemas';
+import type { AirResponse } from '@/lib/shared/apiSchemas';
 import { t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 import { AirControls } from './air/air-controls';
 import { AirSummary } from './air/air-summary';
 import { PollutantGrid } from './air/pollutant-grid';

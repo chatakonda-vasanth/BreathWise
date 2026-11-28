@@ -1,8 +1,8 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import type { Profile } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import type { Profile } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 
 /** An i18n key the translator understands. */
 type MessageKey = Parameters<typeof t>[1];

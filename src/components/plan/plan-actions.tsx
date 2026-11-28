@@ -1,7 +1,7 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 
 interface PlanActionsProps {
   lang: Language;

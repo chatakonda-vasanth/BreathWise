@@ -1,4 +1,4 @@
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME } from '@/lib/shared/constants';
 
 /**
  * RFC 9116 security contact file.

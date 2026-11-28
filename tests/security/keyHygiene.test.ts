@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/plan/route';
-import { LlmError, callGemini } from '@/lib/gemini';
-import { __resetRateLimitState } from '@/lib/rateLimit';
+import { LlmError, callGemini } from '@/lib/ai/gemini';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
 import { PROFILE } from '../fixtures';
 
 /**

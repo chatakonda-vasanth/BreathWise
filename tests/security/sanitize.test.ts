@@ -5,9 +5,9 @@ import {
   sanitizePlan,
   sanitizeText,
   scriptMatches,
-} from '@/lib/sanitize';
-import { buildFallbackPlan } from '@/lib/fallbackPlan';
-import { deriveIndices } from '@/lib/indices';
+} from '@/lib/security/sanitize';
+import { buildFallbackPlan } from '@/lib/ai/fallbackPlan';
+import { deriveIndices } from '@/lib/air/indices';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 describe('sanitizeText', () => {

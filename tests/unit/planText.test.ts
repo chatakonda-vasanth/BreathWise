@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildFallbackPlan } from '@/lib/fallbackPlan';
+import { buildFallbackPlan } from '@/lib/ai/fallbackPlan';
 import { t } from '@/lib/i18n';
-import { confidenceLabel, planToText, whatsappShareHref } from '@/lib/planText';
-import type { Language } from '@/lib/types';
+import { confidenceLabel, planToText, whatsappShareHref } from '@/lib/ai/planText';
+import type { Language } from '@/lib/shared/types';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 function planFor(language: Language, severity: 'unhealthy' | 'hazardous' = 'unhealthy') {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildFallbackPlan, medicalAlertFor } from '@/lib/fallbackPlan';
+import { buildFallbackPlan, medicalAlertFor } from '@/lib/ai/fallbackPlan';
 import { fallbackReasonLabel } from '@/lib/i18n';
-import { planSchema } from '@/lib/schemas';
-import type { Language, SeverityBand } from '@/lib/types';
+import { planSchema } from '@/lib/shared/schemas';
+import type { Language, SeverityBand } from '@/lib/shared/types';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 const LANGUAGES: Language[] = ['en', 'hi', 'te'];

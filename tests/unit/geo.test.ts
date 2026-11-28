@@ -5,7 +5,7 @@ import {
   isValidLongitude,
   normaliseCoords,
   roundCoord,
-} from '@/lib/geo';
+} from '@/lib/air/geo';
 
 describe('coordinate rounding', () => {
   it('rounds to two decimals', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChartGeometry } from '@/lib/trendGeometry';
+import type { ChartGeometry } from '@/lib/impact/trendGeometry';
 
 /**
  * The same values as the chart, as a table.

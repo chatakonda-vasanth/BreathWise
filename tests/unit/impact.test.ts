@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { IMPACT_FACTORS, compareWithWithout, whyThisPlanFits } from '@/lib/impact';
-import type { Profile } from '@/lib/schemas';
+import { IMPACT_FACTORS, compareWithWithout, whyThisPlanFits } from '@/lib/impact/impact';
+import type { Profile } from '@/lib/shared/schemas';
 import { PROFILE } from '../fixtures';
 
 const base = { pm25: 200, language: 'en' as const };

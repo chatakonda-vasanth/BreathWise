@@ -1,18 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import type { AskQuestion } from '@/lib/askQuestions';
-import { roundCoord } from '@/lib/geo';
+import type { AskQuestion } from '@/lib/ai/askQuestions';
+import { roundCoord } from '@/lib/air/geo';
 import { loadLanguage } from '@/lib/i18n';
-import type { SelectedLocation } from '@/lib/location';
-import type { Profile } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import type { SelectedLocation } from '@/lib/shared/location';
+import type { Profile } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 import { useAirData, type AirState } from './use-air-data';
-import {
-  usePlanRequest,
-  type PlanRequestInput,
-  type PlanState,
-} from './use-plan-request';
+import type { PlanRequestInput } from './plan-request-input';
+import { usePlanRequest, type PlanState } from './use-plan-request';
 
 /** The household defaults: a small urban family, no stated sensitivities. */
 export const DEFAULT_PROFILE: Profile = {

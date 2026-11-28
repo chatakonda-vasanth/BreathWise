@@ -1,11 +1,11 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ApiError, requestPlan } from '@/lib/client';
-import { buildFallbackPlan } from '@/lib/fallbackPlan';
+import { ApiError, requestPlan } from '@/lib/shared/client';
+import { buildFallbackPlan } from '@/lib/ai/fallbackPlan';
 import { t } from '@/lib/i18n';
-import type { Plan } from '@/lib/types';
-import type { PlanRequestInput } from './use-plan-request';
+import type { Plan } from '@/lib/shared/types';
+import type { PlanRequestInput } from './plan-request-input';
 
 /** How long before the plan spinner admits that generation is slow. */
 const SLOW_PLAN_MS = 5000;

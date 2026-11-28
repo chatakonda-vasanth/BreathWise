@@ -5,7 +5,7 @@ import {
   llmPlanSchema,
   planRequestSchema,
   profileSchema,
-} from '@/lib/schemas';
+} from '@/lib/shared/schemas';
 import { PROFILE, VALID_LLM_OUTPUT } from '../fixtures';
 
 describe('airQuerySchema', () => {

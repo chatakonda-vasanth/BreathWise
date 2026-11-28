@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildCsp, createNonce, securityHeaders } from '@/lib/security';
+import { buildCsp, createNonce, securityHeaders } from '@/lib/security/security';
 
 describe('content security policy', () => {
   const prod = buildCsp('NONCE123', false);

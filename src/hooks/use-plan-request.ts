@@ -1,20 +1,11 @@
 'use client';
 
-import type { AirResponse } from '@/lib/apiSchemas';
-import type { AskQuestion } from '@/lib/askQuestions';
-import type { SelectedLocation } from '@/lib/location';
-import type { PlanAnswerBody, Profile } from '@/lib/schemas';
-import type { Language, Plan } from '@/lib/types';
+import type { AskQuestion } from '@/lib/ai/askQuestions';
+import type { PlanAnswerBody } from '@/lib/shared/schemas';
+import type { Plan } from '@/lib/shared/types';
+import type { PlanRequestInput } from './plan-request-input';
 import { useAnswerRequest } from './use-answer-request';
 import { usePlanGeneration } from './use-plan-generation';
-
-/** Everything that can change the answer and the place it is for. */
-export interface PlanRequestInput {
-  profile: Profile;
-  lang: Language;
-  airData: AirResponse | null;
-  location: SelectedLocation;
-}
 
 export interface PlanState {
   plan: Plan | null;

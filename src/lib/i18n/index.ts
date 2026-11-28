@@ -1,4 +1,4 @@
-import type { Language, NaqiBand, SeverityBand, UsBand } from '../types';
+import type { Language, NaqiBand, SeverityBand, UsBand } from '@/lib/shared/types';
 import { en, type UiKey } from './en';
 
 export type { UiKey };

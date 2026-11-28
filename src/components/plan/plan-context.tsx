@@ -1,7 +1,7 @@
 'use client';
 
-import type { Profile } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import type { Profile } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 import { LocalContextCard, WhyThisPlanFits, WithWithoutCard } from '../personal-context';
 
 /**

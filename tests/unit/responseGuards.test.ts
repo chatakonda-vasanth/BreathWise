@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { deriveIndices } from '@/lib/indices';
-import { isAirResponse, isGeocodeResponse, isPlanResponse } from '@/lib/responseGuards';
-import type { Recommendation } from '@/lib/types';
+import { deriveIndices } from '@/lib/air/indices';
+import { isAirResponse, isGeocodeResponse, isPlanResponse } from '@/lib/shared/responseGuards';
+import type { Recommendation } from '@/lib/shared/types';
 import { SNAPSHOT } from '../fixtures';
 
 /**

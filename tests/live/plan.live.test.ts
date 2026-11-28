@@ -2,12 +2,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import type { NextRequest } from 'next/server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/plan/route';
-import { callGemini, parseJsonText } from '@/lib/gemini';
-import { deriveIndices } from '@/lib/indices';
-import { SYSTEM_INSTRUCTION, buildUserPrompt } from '@/lib/prompt';
-import { __resetRateLimitState } from '@/lib/rateLimit';
-import { looksLikeMedicalAdvice } from '@/lib/sanitize';
-import { llmPlanSchema, planResponseSchema, type Profile } from '@/lib/schemas';
+import { callGemini, parseJsonText } from '@/lib/ai/gemini';
+import { deriveIndices } from '@/lib/air/indices';
+import { SYSTEM_INSTRUCTION, buildUserPrompt } from '@/lib/ai/prompt';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
+import { looksLikeMedicalAdvice } from '@/lib/security/sanitize';
+import { llmPlanSchema, planResponseSchema, type Profile } from '@/lib/shared/schemas';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 import { loadLocalEnv } from './env';
 

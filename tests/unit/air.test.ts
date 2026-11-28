@@ -6,8 +6,8 @@ import {
   buildGeocodeUrl,
   geocodeCity,
   getAirSnapshot,
-} from '@/lib/air';
-import { deriveIndices } from '@/lib/indices';
+} from '@/lib/air/air';
+import { deriveIndices } from '@/lib/air/indices';
 import { SNAPSHOT } from '../fixtures';
 
 function hourlyTimes(): string[] {

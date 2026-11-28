@@ -2,7 +2,7 @@
 
 import type { Geolocation } from '@/hooks/use-geolocation';
 import { t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 import { Banner } from '../ui';
 
 /**

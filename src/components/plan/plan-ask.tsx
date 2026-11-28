@@ -1,9 +1,9 @@
 'use client';
 
-import { ASK_LABEL_KEY, ASK_QUESTIONS, type AskQuestion } from '@/lib/askQuestions';
+import { ASK_LABEL_KEY, ASK_QUESTIONS, type AskQuestion } from '@/lib/ai/askQuestions';
 import { fallbackReasonLabel, t } from '@/lib/i18n';
-import type { PlanAnswerBody } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import type { PlanAnswerBody } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 import { Banner, SectionHeading } from '../ui';
 
 interface PlanAskProps {

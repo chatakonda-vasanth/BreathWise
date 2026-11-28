@@ -1,7 +1,7 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import type { Language, Plan } from '@/lib/types';
+import type { Language, Plan } from '@/lib/shared/types';
 
 /**
  * The plan's headline and its plain-language meaning.

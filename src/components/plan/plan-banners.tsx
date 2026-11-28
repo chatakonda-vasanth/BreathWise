@@ -1,7 +1,7 @@
 'use client';
 
 import { fallbackReasonLabel, t } from '@/lib/i18n';
-import type { Language, Plan } from '@/lib/types';
+import type { Language, Plan } from '@/lib/shared/types';
 import { Banner } from '../ui';
 
 /** Why the rule-based plan is on screen, in the reader's language. */

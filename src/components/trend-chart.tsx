@@ -1,7 +1,7 @@
 'use client';
 
-import { chartGeometry } from '@/lib/trendGeometry';
-import type { AirPoint } from '@/lib/types';
+import { chartGeometry } from '@/lib/impact/trendGeometry';
+import type { AirPoint } from '@/lib/shared/types';
 import { TrendSvg } from './chart/trend-svg';
 import { TrendTable } from './chart/trend-table';
 

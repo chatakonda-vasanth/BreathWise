@@ -9,7 +9,7 @@ import {
   usBand,
   usBandToSeverity,
   worseBand,
-} from '@/lib/aqi';
+} from '@/lib/air/aqi';
 import {
   naqiBand,
   naqiBandToSeverity,
@@ -18,7 +18,7 @@ import {
   o3SubIndex,
   pm10SubIndex,
   pm25SubIndex,
-} from '@/lib/naqi';
+} from '@/lib/air/naqi';
 
 /**
  * Band boundaries are the part of the maths most likely to be changed by hand.

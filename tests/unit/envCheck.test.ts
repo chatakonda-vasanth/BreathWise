@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { inspectEnv, reportEnv } from '@/lib/envCheck';
+import { inspectEnv, reportEnv } from '@/lib/shared/envCheck';
 
 const SECRET_KEY = 'AIzaSy-not-a-real-key-value';
 const SECRET_TOKEN = 'AXupstash-not-a-real-token';

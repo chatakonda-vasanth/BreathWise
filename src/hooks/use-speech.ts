@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 
 /**
  * Speech synthesis for the plan text.

@@ -5,17 +5,17 @@ import {
   consumeDailyLlmQuota,
   enforceRateLimit,
   upstashConfigured,
-} from '@/lib/rateLimit';
-import { DEFAULT_GEMINI_MODEL } from '@/lib/constants';
-import { callGemini, extractText, getModelId, parseJsonText } from '@/lib/gemini';
-import { readJsonBody } from '@/lib/requestBody';
-import { __clearAirCache, getAirSnapshot, UpstreamError } from '@/lib/air';
-import { deriveIndices } from '@/lib/indices';
-import { buildUserPrompt } from '@/lib/prompt';
-import { parseOrNull, planResponseSchema, profileSchema } from '@/lib/schemas';
+} from '@/lib/security/rateLimit';
+import { DEFAULT_GEMINI_MODEL } from '@/lib/shared/constants';
+import { callGemini, extractText, getModelId, parseJsonText } from '@/lib/ai/gemini';
+import { readJsonBody } from '@/lib/security/requestBody';
+import { __clearAirCache, getAirSnapshot, UpstreamError } from '@/lib/air/air';
+import { deriveIndices } from '@/lib/air/indices';
+import { buildUserPrompt } from '@/lib/ai/prompt';
+import { parseOrNull, planResponseSchema, profileSchema } from '@/lib/shared/schemas';
 import { fallbackReasonLabel, t, tList } from '@/lib/i18n';
-import { inspectEnv, reportEnv } from '@/lib/envCheck';
-import { sanitizeText, scriptMatches } from '@/lib/sanitize';
+import { inspectEnv, reportEnv } from '@/lib/shared/envCheck';
+import { sanitizeText, scriptMatches } from '@/lib/security/sanitize';
 import { PROFILE, SNAPSHOT } from '../fixtures';
 
 /** Targeted coverage of defensive branches that no happy-path test reaches. */

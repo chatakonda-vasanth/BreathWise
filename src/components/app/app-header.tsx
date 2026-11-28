@@ -1,7 +1,7 @@
 'use client';
 
 import { LANGUAGE_NAMES, t } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 import type { Step, ThemeChoice } from '@/hooks/use-app-flow';
 import { Banner } from '../ui';
 

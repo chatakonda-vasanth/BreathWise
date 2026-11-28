@@ -1,10 +1,10 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import { compareWithWithout, whyThisPlanFits } from '@/lib/impact';
-import { regionalContext, regionalLabels } from '@/lib/regional';
-import type { Profile } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import { compareWithWithout, whyThisPlanFits } from '@/lib/impact/impact';
+import { regionalContext, regionalLabels } from '@/lib/air/regional';
+import type { Profile } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 import { SectionHeading } from './ui';
 
 /**

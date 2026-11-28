@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { AskQuestion } from '@/lib/askQuestions';
-import { requestAnswer } from '@/lib/client';
+import type { AskQuestion } from '@/lib/ai/askQuestions';
+import { requestAnswer } from '@/lib/shared/client';
 import { t } from '@/lib/i18n';
-import type { PlanAnswerBody } from '@/lib/schemas';
-import type { PlanRequestInput } from './use-plan-request';
+import type { PlanAnswerBody } from '@/lib/shared/schemas';
+import type { PlanRequestInput } from './plan-request-input';
 
 export interface AnswerState {
   answer: PlanAnswerBody | null;

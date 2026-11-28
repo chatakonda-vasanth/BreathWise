@@ -7,7 +7,7 @@ import {
   o3SubIndex,
   pm10SubIndex,
   pm25SubIndex,
-} from '@/lib/naqi';
+} from '@/lib/air/naqi';
 
 describe('CPCB NAQI sub-indices', () => {
   it('maps PM2.5 breakpoints to sub-index values', () => {

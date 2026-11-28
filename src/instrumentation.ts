@@ -7,6 +7,6 @@
  */
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
-  const { reportEnv } = await import('./lib/envCheck');
+  const { reportEnv } = await import('./lib/shared/envCheck');
   reportEnv();
 }

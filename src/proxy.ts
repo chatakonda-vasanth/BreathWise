@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { buildCsp, createNonce, securityHeaders } from '@/lib/security';
+import { buildCsp, createNonce, securityHeaders } from '@/lib/security/security';
 
 /**
  * Next.js 16 replaced `middleware.ts` with `proxy.ts` (same API, new name).

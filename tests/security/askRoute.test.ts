@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/plan/route';
-import { __resetRateLimitState } from '@/lib/rateLimit';
-import { answerResponseSchema } from '@/lib/schemas';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
+import { answerResponseSchema } from '@/lib/shared/schemas';
 import { PROFILE } from '../fixtures';
 
 /**

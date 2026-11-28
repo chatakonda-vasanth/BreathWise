@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import type { AirResponse } from '@/lib/apiSchemas';
-import { fetchAir } from '@/lib/client';
+import type { AirResponse } from '@/lib/shared/apiSchemas';
+import { fetchAir } from '@/lib/shared/client';
 import { t } from '@/lib/i18n';
-import { deriveIndices } from '@/lib/indices';
-import { createSampleSnapshot } from '@/lib/sampleData';
-import type { Language } from '@/lib/types';
+import { deriveIndices } from '@/lib/air/indices';
+import { createSampleSnapshot } from '@/lib/air/sampleData';
+import type { Language } from '@/lib/shared/types';
 
 /** Labelled sample snapshot, used only when live data is unavailable. */
 export function sampleResponse(): AirResponse {

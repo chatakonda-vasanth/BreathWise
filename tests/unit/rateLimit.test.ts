@@ -4,7 +4,7 @@ import {
   __resetRateLimitState,
   consumeDailyLlmQuota,
   enforceRateLimit,
-} from '@/lib/rateLimit';
+} from '@/lib/security/rateLimit';
 
 const ENV_KEYS = ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'] as const;
 

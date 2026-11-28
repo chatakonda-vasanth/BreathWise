@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deriveIndices } from '@/lib/indices';
-import { generatePlan } from '@/lib/planService';
-import { __resetRateLimitState } from '@/lib/rateLimit';
-import { planSchema } from '@/lib/schemas';
-import type { Language } from '@/lib/types';
+import { deriveIndices } from '@/lib/air/indices';
+import { generatePlan } from '@/lib/ai/planService';
+import { __resetRateLimitState } from '@/lib/security/rateLimit';
+import { planSchema } from '@/lib/shared/schemas';
+import type { Language } from '@/lib/shared/types';
 import {
   HINDI_LLM_OUTPUT,
   PROFILE,

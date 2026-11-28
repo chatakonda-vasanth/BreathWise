@@ -1,7 +1,7 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import type { AirSnapshot, Language } from '@/lib/types';
+import type { AirSnapshot, Language } from '@/lib/shared/types';
 
 /** One concentration, or an em dash when the upstream value is missing. */
 function fmt(value: number | null, digits = 0): string {

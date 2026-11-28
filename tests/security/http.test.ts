@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkOrigin, isValidOrigin } from '@/lib/http';
-import { canonicalIp, getClientIp, hashIp } from '@/lib/clientIp';
-import { readJsonBody } from '@/lib/requestBody';
+import { checkOrigin, isValidOrigin } from '@/lib/shared/http';
+import { canonicalIp, getClientIp, hashIp } from '@/lib/security/clientIp';
+import { readJsonBody } from '@/lib/security/requestBody';
 
 const savedOrigin = process.env.APP_ORIGIN;
 

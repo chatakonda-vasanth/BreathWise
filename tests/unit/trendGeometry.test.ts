@@ -4,8 +4,8 @@ import {
   CHART_PADDING,
   CHART_WIDTH,
   chartGeometry,
-} from '@/lib/trendGeometry';
-import type { AirPoint } from '@/lib/types';
+} from '@/lib/impact/trendGeometry';
+import type { AirPoint } from '@/lib/shared/types';
 
 /** An hourly point with the given AQI, or with no AQI at all. */
 function point(hour: number, usAqi: number | null): AirPoint {

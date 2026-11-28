@@ -1,7 +1,7 @@
 'use client';
 
 import { t, tList } from '@/lib/i18n';
-import type { Language } from '@/lib/types';
+import type { Language } from '@/lib/shared/types';
 import { SectionHeading } from '../ui';
 
 /**

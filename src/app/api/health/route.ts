@@ -1,7 +1,7 @@
-import { RATE_LIMITS } from '@/lib/constants';
-import { getClientIp } from '@/lib/clientIp';
-import { errorResponse, jsonResponse, logEvent } from '@/lib/http';
-import { enforceRateLimit } from '@/lib/rateLimit';
+import { RATE_LIMITS } from '@/lib/shared/constants';
+import { getClientIp } from '@/lib/security/clientIp';
+import { errorResponse, jsonResponse, logEvent } from '@/lib/shared/http';
+import { enforceRateLimit } from '@/lib/security/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

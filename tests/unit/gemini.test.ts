@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LlmError, callGemini, thinkingConfigFor } from '@/lib/gemini';
+import { LlmError, callGemini, thinkingConfigFor } from '@/lib/ai/gemini';
 
 afterEach(() => {
   vi.unstubAllGlobals();
