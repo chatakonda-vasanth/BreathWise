@@ -38,6 +38,45 @@ function StepProgress({ lang, step }: { lang: Language; step: Step }) {
   );
 }
 
+/** Language and theme switchers, grouped so each control has one label. */
+function DisplayControls({
+  lang,
+  theme,
+  onLanguage,
+  onTheme,
+}: Omit<AppHeaderProps, 'step'>) {
+  return (
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex gap-1" role="group" aria-label={t(lang, 'language')}>
+        {(Object.keys(LANGUAGE_NAMES) as Language[]).map((code) => (
+          <button
+            key={code}
+            type="button"
+            className={`btn min-w-11 px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
+            aria-pressed={code === lang}
+            onClick={() => onLanguage(code)}
+          >
+            {LANGUAGE_NAMES[code]}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1" role="group" aria-label={t(lang, 'theme')}>
+        {THEMES.map((choice) => (
+          <button
+            key={choice}
+            type="button"
+            className={`btn min-w-11 px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
+            aria-pressed={theme === choice}
+            onClick={() => onTheme(choice)}
+          >
+            {choice}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Title, language and theme switchers, the medical notice and the progress
  * list. Kept out of `AppShell` so the stateful component stays readable.
@@ -52,35 +91,7 @@ export function AppHeader({ lang, theme, step, onLanguage, onTheme }: AppHeaderP
           </h1>
           <p className="hint mt-1 max-w-prose">{t(lang, 'tagline')}</p>
         </div>
-
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex gap-1" role="group" aria-label={t(lang, 'language')}>
-            {(Object.keys(LANGUAGE_NAMES) as Language[]).map((code) => (
-              <button
-                key={code}
-                type="button"
-                className={`btn min-w-11 px-3 py-1 text-sm ${code === lang ? 'btn-primary' : ''}`}
-                aria-pressed={code === lang}
-                onClick={() => onLanguage(code)}
-              >
-                {LANGUAGE_NAMES[code]}
-              </button>
-            ))}
-          </div>
-          <div className="flex gap-1" role="group" aria-label={t(lang, 'theme')}>
-            {THEMES.map((choice) => (
-              <button
-                key={choice}
-                type="button"
-                className={`btn min-w-11 px-2 py-1 text-xs ${theme === choice ? 'btn-primary' : ''}`}
-                aria-pressed={theme === choice}
-                onClick={() => onTheme(choice)}
-              >
-                {choice}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DisplayControls lang={lang} theme={theme} onLanguage={onLanguage} onTheme={onTheme} />
       </div>
 
       <div className="mt-3">

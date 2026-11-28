@@ -130,9 +130,8 @@ export const NAQI_LABELS: Record<Language, Record<NaqiBand, string>> = {
   },
 };
 
-/** Human-readable reason for a fallback plan, localised. */
-export function fallbackReasonLabel(language: Language, reason: string): string {
-  const table: Record<string, Record<Language, string>> = {
+/** Localised labels for every reason a fallback plan can be shown. */
+const FALLBACK_REASON_LABELS: Record<string, Record<Language, string>> = {
     llm_disabled: { en: 'AI is switched off', hi: 'AI बंद है', te: 'AI ఆఫ్‌లో ఉంది' },
     no_api_key: { en: 'No AI key configured', hi: 'AI कुंजी नहीं है', te: 'AI కీ లేదు' },
     timeout: {
@@ -178,6 +177,9 @@ export function fallbackReasonLabel(language: Language, reason: string): string 
       te: 'మీరు AI అభ్యర్థనను రద్దు చేశారు',
     },
     unknown: { en: 'Unexpected error', hi: 'अप्रत्याशित त्रुटि', te: 'అనూహ్య లోపం' },
-  };
-  return table[reason]?.[language] ?? table.unknown?.[language] ?? reason;
+};
+
+/** Human-readable reason for a fallback plan, localised. */
+export function fallbackReasonLabel(language: Language, reason: string): string {
+  return FALLBACK_REASON_LABELS[reason]?.[language] ?? FALLBACK_REASON_LABELS.unknown?.[language] ?? reason;
 }

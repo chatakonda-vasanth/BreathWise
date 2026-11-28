@@ -22,48 +22,47 @@ interface PlanActionsProps {
  * Every action works offline except the share link, and none of them sends the
  * plan anywhere: copy and speech use local browser APIs.
  */
-export function PlanActions({
+function ActionButtons({
   lang,
   whatsappHref,
   speaking,
-  speechError,
   copied,
   onToggleReading,
   onCopy,
   onRegenerate,
   onBack,
-}: PlanActionsProps) {
+}: Omit<PlanActionsProps, 'speechError'>) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-2 no-print">
+      <button type="button" className="btn" onClick={onToggleReading} aria-pressed={speaking}>
+        {speaking ? t(lang, 'stopReading') : t(lang, 'readAloud')}
+      </button>
+      <button type="button" className="btn" onClick={onCopy}>
+        {copied ? t(lang, 'copied') : t(lang, 'copy')}
+      </button>
+      <a className="btn" href={whatsappHref} target="_blank" rel="noopener noreferrer">
+        {t(lang, 'whatsapp')}
+      </a>
+      <button type="button" className="btn" onClick={() => window.print()}>
+        {t(lang, 'print')}
+      </button>
+      <button type="button" className="btn" onClick={onRegenerate}>
+        {t(lang, 'retry')}
+      </button>
+      <button type="button" className="btn" onClick={onBack}>
+        {t(lang, 'back')}
+      </button>
+    </div>
+  );
+}
+
+export function PlanActions(props: PlanActionsProps) {
   return (
     <>
-      <div className="mt-4 flex flex-wrap gap-2 no-print">
-        <button
-          type="button"
-          className="btn"
-          onClick={onToggleReading}
-          aria-pressed={speaking}
-        >
-          {speaking ? t(lang, 'stopReading') : t(lang, 'readAloud')}
-        </button>
-        <button type="button" className="btn" onClick={onCopy}>
-          {copied ? t(lang, 'copied') : t(lang, 'copy')}
-        </button>
-        <a className="btn" href={whatsappHref} target="_blank" rel="noopener noreferrer">
-          {t(lang, 'whatsapp')}
-        </a>
-        <button type="button" className="btn" onClick={() => window.print()}>
-          {t(lang, 'print')}
-        </button>
-        <button type="button" className="btn" onClick={onRegenerate}>
-          {t(lang, 'retry')}
-        </button>
-        <button type="button" className="btn" onClick={onBack}>
-          {t(lang, 'back')}
-        </button>
-      </div>
-
-      {speechError ? (
+      <ActionButtons {...props} />
+      {props.speechError ? (
         <p className="mt-2 text-sm font-semibold" role="status">
-          {speechError}
+          {props.speechError}
         </p>
       ) : null}
     </>

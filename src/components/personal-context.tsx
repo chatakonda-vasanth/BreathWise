@@ -1,7 +1,7 @@
 'use client';
 
 import { t } from '@/lib/i18n';
-import { compareWithWithout, whyThisPlanFits } from '@/lib/impact/impact';
+import { compareWithWithout, whyThisPlanFits, type ImpactComparison } from '@/lib/impact';
 import { regionalContext, regionalLabels } from '@/lib/air/regional';
 import type { Profile } from '@/lib/shared/schemas';
 import type { Language } from '@/lib/shared/types';
@@ -42,6 +42,52 @@ export function WhyThisPlanFits({
  * Before/after estimate for
  * the top recommendations, with the assumption stated next to the number.
  */
+function ImpactTable({ comparison }: { comparison: ImpactComparison }) {
+  const { labels } = comparison;
+  const rows = [
+    { label: labels.without, value: comparison.baseline },
+    { label: labels.with, value: comparison.withChanges },
+    { label: labels.outdoors, value: comparison.outdoorWithMask },
+  ];
+  return (
+    <table className="mt-2 w-full text-sm">
+      <caption className="sr-only">{labels.title}</caption>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label} className="align-top">
+            <th scope="row" className="py-1 pr-3 text-left font-semibold">
+              {row.label}
+            </th>
+            <td className="py-1 tabular-nums">
+              {row.value} {labels.unit}{' '}
+              <span className="hint font-normal">({labels.roughEstimate})</span>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ImpactAssumptions({ comparison }: { comparison: ImpactComparison }) {
+  const { labels } = comparison;
+  return (
+    <details className="mt-2">
+      <summary className="cursor-pointer text-sm font-semibold">{labels.assumptions}</summary>
+      <ul className="mt-2 space-y-2 text-sm">
+        {comparison.steps.map((step) => (
+          <li key={step.id}>
+            <p className="font-semibold">
+              {step.label} — {step.reductionPct}% ({labels.roughEstimate})
+            </p>
+            <p className="hint">{step.assumption}</p>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export function WithWithoutCard({
   pm25,
   profile,
@@ -53,57 +99,13 @@ export function WithWithoutCard({
 }) {
   const comparison = compareWithWithout({ pm25, profile, language: lang });
   if (!comparison) return null;
-
   const { labels } = comparison;
-  const estimate = `(${labels.roughEstimate})`;
-  const rows = [
-    { label: labels.without, value: comparison.baseline },
-    { label: labels.with, value: comparison.withChanges },
-    { label: labels.outdoors, value: comparison.outdoorWithMask },
-  ];
-
   return (
-    <section
-      className="card mt-3"
-      aria-labelledby="impact-heading"
-      data-testid="with-without"
-    >
+    <section className="card mt-3" aria-labelledby="impact-heading" data-testid="with-without">
       <SectionHeading id="impact-heading">{labels.title}</SectionHeading>
-
-      <table className="mt-2 w-full text-sm">
-        <caption className="sr-only">{labels.title}</caption>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label} className="align-top">
-              <th scope="row" className="py-1 pr-3 text-left font-semibold">
-                {row.label}
-              </th>
-              <td className="py-1 tabular-nums">
-                {row.value} {labels.unit}{' '}
-                <span className="hint font-normal">{estimate}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
+      <ImpactTable comparison={comparison} />
       <p className="hint mt-2">{labels.note}</p>
-
-      <details className="mt-2">
-        <summary className="cursor-pointer text-sm font-semibold">
-          {labels.assumptions}
-        </summary>
-        <ul className="mt-2 space-y-2 text-sm">
-          {comparison.steps.map((step) => (
-            <li key={step.id}>
-              <p className="font-semibold">
-                {step.label} — {step.reductionPct}% ({labels.roughEstimate})
-              </p>
-              <p className="hint">{step.assumption}</p>
-            </li>
-          ))}
-        </ul>
-      </details>
+      <ImpactAssumptions comparison={comparison} />
     </section>
   );
 }

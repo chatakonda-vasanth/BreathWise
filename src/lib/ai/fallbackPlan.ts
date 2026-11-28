@@ -149,6 +149,42 @@ export function medicalAlertFor(
   return null;
 }
 
+interface PlanItem {
+  title: string;
+  detail: string;
+  mechanism: string;
+  reduction: string;
+  assumption: string;
+  confidence: Recommendation['impact']['confidence'];
+}
+
+/** Map one reviewed copy item onto the recommendation shape the API expects. */
+function toRecommendation(item: PlanItem): Recommendation {
+  return {
+    title: item.title,
+    detail: item.detail,
+    impact: {
+      mechanism: item.mechanism,
+      estimatedReduction: item.reduction,
+      assumption: item.assumption,
+      confidence: item.confidence,
+    },
+  };
+}
+
+/** Cigarette-equivalent sentence, or the no-PM2.5 sentence when unavailable. */
+function cigaretteTextFor(pm25: number | null, language: Language): string {
+  if (typeof pm25 !== 'number') return NO_PM25[language];
+  const cigarettes = cigaretteEquivalent(pm25);
+  if (language === 'hi') {
+    return `बाहरी PM2.5 लगभग ${Math.round(pm25)} µg/m³ है — मोटे तौर पर प्रतिदिन ${cigarettes} सिगरेट के बराबर।`;
+  }
+  if (language === 'te') {
+    return `బయటి PM2.5 సుమారు ${Math.round(pm25)} µg/m³ — స్థూలంగా రోజుకు ${cigarettes} సిగరెట్లకు సమానం.`;
+  }
+  return `Outdoor PM2.5 is about ${Math.round(pm25)} µg/m³ — very roughly ${cigarettes} cigarettes a day.`;
+}
+
 /**
  * Build the complete, reviewed rule-based plan for a snapshot and profile.
  *
@@ -159,44 +195,10 @@ export function medicalAlertFor(
 export function buildFallbackPlan(args: BuildFallbackArgs): Plan {
   const { snapshot, profile, language, severity, naqiBand, reason } = args;
   const copy = BAND_COPY[language][severity];
-
-  const indoor: Recommendation[] = INDOOR_ITEMS[language].map((item) => ({
-    title: item.title,
-    detail: item.detail,
-    impact: {
-      mechanism: item.mechanism,
-      estimatedReduction: item.reduction,
-      assumption: item.assumption,
-      confidence: item.confidence,
-    },
-  }));
-
+  const indoor = INDOOR_ITEMS[language].map(toRecommendation);
   if (typeof profile.roomSizeSqm === 'number') {
     indoor.push(purifierRecommendation(language, profile.roomSizeSqm));
   }
-
-  const sustainable: Recommendation[] = SUSTAINABLE_ITEMS[language].map((item) => ({
-    title: item.title,
-    detail: item.detail,
-    impact: {
-      mechanism: item.mechanism,
-      estimatedReduction: item.reduction,
-      assumption: item.assumption,
-      confidence: item.confidence,
-    },
-  }));
-
-  const pm25 = snapshot.current.pm25;
-  const cigarettes = typeof pm25 === 'number' ? cigaretteEquivalent(pm25) : null;
-
-  const cigaretteText =
-    cigarettes === null
-      ? NO_PM25[language]
-      : language === 'hi'
-        ? `बाहरी PM2.5 लगभग ${Math.round(pm25 as number)} µg/m³ है — मोटे तौर पर प्रतिदिन ${cigarettes} सिगरेट के बराबर।`
-        : language === 'te'
-          ? `బయటి PM2.5 సుమారు ${Math.round(pm25 as number)} µg/m³ — స్థూలంగా రోజుకు ${cigarettes} సిగరెట్లకు సమానం.`
-          : `Outdoor PM2.5 is about ${Math.round(pm25 as number)} µg/m³ — very roughly ${cigarettes} cigarettes a day.`;
 
   return {
     language,
@@ -204,7 +206,7 @@ export function buildFallbackPlan(args: BuildFallbackArgs): Plan {
     headline: copy.headline,
     whatThisMeans: {
       text: copy.meaning,
-      cigaretteEquivalent: cigaretteText,
+      cigaretteEquivalent: cigaretteTextFor(snapshot.current.pm25, language),
       assumption: CIGARETTE_ASSUMPTION[language],
     },
     bestTimeToGoOut: copy.bestTime,
@@ -212,7 +214,7 @@ export function buildFallbackPlan(args: BuildFallbackArgs): Plan {
     schoolAndCommute: copy.school,
     exerciseTiming: copy.exercise,
     indoorHacks: indoor,
-    sustainableAlternatives: sustainable,
+    sustainableAlternatives: SUSTAINABLE_ITEMS[language].map(toRecommendation),
     medicalAlert: medicalAlertFor(language, severity, naqiBand, profile.symptoms),
     generatedBy: 'fallback',
     ...(reason ? { fallbackReason: reason } : {}),

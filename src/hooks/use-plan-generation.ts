@@ -79,6 +79,61 @@ async function requestAndCache(
   }
 }
 
+/** Serve a cached plan when this exact input has already been generated. */
+function serveCachedPlan(
+  input: PlanRequestInput,
+  cache: Map<string, Plan>,
+  show: (plan: Plan) => void,
+  setError: (message: string | null) => void,
+  setLoading: (value: boolean) => void,
+): boolean {
+  const cached = cache.get(planCacheKey(input));
+  if (!cached) return false;
+  setError(null);
+  setLoading(false);
+  show(cached);
+  return true;
+}
+
+interface CancelDeps {
+  abort: { current: AbortController | null };
+  setPlan: (plan: Plan) => void;
+  setSlow: (value: boolean) => void;
+  setLoading: (value: boolean) => void;
+  onReady: () => void;
+}
+
+/** Clear the previous answer before starting a fresh request. */
+function beginRequest(
+  setPlan: (plan: Plan | null) => void,
+  setLoading: (value: boolean) => void,
+  setSlow: (value: boolean) => void,
+  setError: (message: string | null) => void,
+): void {
+  setLoading(true);
+  setSlow(false);
+  setError(null);
+  setPlan(null);
+}
+
+/** Put a plan on screen and let the caller advance its step. */
+function showPlan(next: Plan, setPlan: (plan: Plan) => void, onReady: () => void): void {
+  setPlan(next);
+  onReady();
+}
+
+/** Replace a slow request with the deterministic local plan. */
+function applyCancellation(input: PlanRequestInput, deps: CancelDeps): void {
+  const cancelled = cancelledPlan(input);
+  if (!cancelled) return;
+  deps.abort.current?.abort();
+  deps.abort.current = null;
+  deps.setPlan(cancelled);
+  deps.setSlow(false);
+  deps.setLoading(false);
+  deps.onReady();
+}
+
 /** The local fallback shown when the reader cancels a slow generation. */
 function cancelledPlan(input: PlanRequestInput): Plan | null {
   if (!input.airData) return null;
@@ -122,25 +177,13 @@ export function usePlanGeneration(onReady: () => void): GenerationState {
    */
   const cache = useRef(new Map<string, Plan>());
 
-  function show(next: Plan): void {
-    setPlan(next);
-    onReady();
-  }
+  const show = (next: Plan) => showPlan(next, setPlan, onReady);
 
   async function submit(input: PlanRequestInput): Promise<void> {
     const key = planCacheKey(input);
-    const cached = cache.current.get(key);
-    if (cached) {
-      setPlanError(null);
-      setPlanLoading(false);
-      show(cached);
-      return;
-    }
+    if (serveCachedPlan(input, cache.current, show, setPlanError, setPlanLoading)) return;
 
-    setPlanLoading(true);
-    setPlanSlow(false);
-    setPlanError(null);
-    setPlan(null);
+    beginRequest(setPlan, setPlanLoading, setPlanSlow, setPlanError);
     await requestAndCache(input, key, {
       cache: cache.current,
       abort,
@@ -157,14 +200,13 @@ export function usePlanGeneration(onReady: () => void): GenerationState {
    * instead of waiting for the model or the request to unwind.
    */
   function cancel(input: PlanRequestInput): void {
-    const cancelled = cancelledPlan(input);
-    if (!cancelled) return;
-    abort.current?.abort();
-    abort.current = null;
-    setPlan(cancelled);
-    setPlanSlow(false);
-    setPlanLoading(false);
-    onReady();
+    applyCancellation(input, {
+      abort,
+      setPlan,
+      setSlow: setPlanSlow,
+      setLoading: setPlanLoading,
+      onReady,
+    });
   }
 
   return {

@@ -92,6 +92,14 @@ function SelectField({
   );
 }
 
+/** Parse the room-size input, returning the patch to apply (or null to ignore). */
+function roomSizePatch(raw: string): Partial<Profile> | null {
+  if (raw === '') return { roomSizeSqm: undefined };
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return null;
+  return { roomSizeSqm: Math.min(Math.max(parsed, 5), 200) };
+}
+
 /** Main room area, which drives the purifier sizing and the impact estimate. */
 function RoomSizeField({
   lang,
@@ -117,14 +125,8 @@ function RoomSizeField({
         step={1}
         value={value ?? ''}
         onChange={(event) => {
-          const raw = event.target.value;
-          if (raw === '') {
-            onChange({ roomSizeSqm: undefined });
-            return;
-          }
-          const parsed = Number(raw);
-          if (!Number.isFinite(parsed)) return;
-          onChange({ roomSizeSqm: Math.min(Math.max(parsed, 5), 200) });
+          const patch = roomSizePatch(event.target.value);
+          if (patch) onChange(patch);
         }}
         aria-describedby="profile-room-hint"
       />
@@ -135,18 +137,16 @@ function RoomSizeField({
   );
 }
 
-/** Home, glazing, kitchen, commute, budget and room size. */
-export function HomeFields({
-  lang,
-  value,
-  onChange,
-}: {
+interface HomeFieldsProps {
   lang: Language;
   value: Profile;
   onChange: (patch: Partial<Profile>) => void;
-}) {
+}
+
+/** The three building-shell choices. */
+function HomeShellFields({ lang, value, onChange }: HomeFieldsProps) {
   return (
-    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+    <>
       <SelectField
         id="profile-home"
         label={t(lang, 'homeType')}
@@ -170,6 +170,14 @@ export function HomeFields({
           onChange({ kitchenVentilation: next as Profile['kitchenVentilation'] })
         }
       />
+    </>
+  );
+}
+
+/** Commute, budget and the main room's area. */
+function LifestyleFields({ lang, value, onChange }: HomeFieldsProps) {
+  return (
+    <>
       <SelectField
         id="profile-commute"
         label={t(lang, 'commute')}
@@ -185,6 +193,16 @@ export function HomeFields({
         onChange={(next) => onChange({ budget: next as Profile['budget'] })}
       />
       <RoomSizeField lang={lang} value={value.roomSizeSqm} onChange={onChange} />
+    </>
+  );
+}
+
+/** Home, glazing, kitchen, commute, budget and room size. */
+export function HomeFields(props: HomeFieldsProps) {
+  return (
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <HomeShellFields {...props} />
+      <LifestyleFields {...props} />
     </div>
   );
 }

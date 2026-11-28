@@ -4,6 +4,27 @@ import { t } from '@/lib/i18n';
 import type { Profile } from '@/lib/shared/schemas';
 import type { Language } from '@/lib/shared/types';
 
+function CheckRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="check-row text-sm">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
 /**
  * Pregnancy, sensitivity and today's symptoms.
  *
@@ -23,31 +44,22 @@ export function SensitivityFields({
     <fieldset className="mt-4">
       <legend className="field-label">{t(lang, 'sensitive')}</legend>
       <div className="flex flex-col gap-2">
-        <label className="check-row text-sm">
-          <input
-            type="checkbox"
-            checked={value.pregnant}
-            onChange={(event) => onChange({ pregnant: event.target.checked })}
-          />
-          {t(lang, 'pregnant')}
-        </label>
-        <label className="check-row text-sm">
-          <input
-            type="checkbox"
-            checked={value.sensitiveGroup}
-            onChange={(event) => onChange({ sensitiveGroup: event.target.checked })}
-          />
-          {t(lang, 'sensitive')}
-        </label>
+        <CheckRow
+          label={t(lang, 'pregnant')}
+          checked={value.pregnant}
+          onChange={(pregnant) => onChange({ pregnant })}
+        />
+        <CheckRow
+          label={t(lang, 'sensitive')}
+          checked={value.sensitiveGroup}
+          onChange={(sensitiveGroup) => onChange({ sensitiveGroup })}
+        />
         <p className="hint">{t(lang, 'sensitiveHelp')}</p>
-        <label className="check-row text-sm">
-          <input
-            type="checkbox"
-            checked={value.symptoms}
-            onChange={(event) => onChange({ symptoms: event.target.checked })}
-          />
-          {t(lang, 'symptoms')}
-        </label>
+        <CheckRow
+          label={t(lang, 'symptoms')}
+          checked={value.symptoms}
+          onChange={(symptoms) => onChange({ symptoms })}
+        />
         <p className="hint">{t(lang, 'symptomsHelp')}</p>
       </div>
     </fieldset>

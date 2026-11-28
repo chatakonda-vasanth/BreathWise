@@ -100,28 +100,16 @@ function usePreferences() {
   };
 }
 
-/**
- * The whole client flow: place, profile, plan and the fixed questions.
- *
- * Composed from `usePreferences`, `useAirData` and `usePlanRequest` so this hook
- * only holds the navigation state and the bindings between them.
- */
-export function useAppFlow(): AppFlow {
-  const { lang, theme, setTheme, selectLanguage } = usePreferences();
-  const [step, setStep] = useState<Step>(1);
+/** Place, profile and the navigation state that outlives a single request. */
+function useFlowState(
+  air: AirState,
+  clearPlan: () => void,
+  step: Step,
+  setStep: (step: Step) => void,
+) {
   const [location, setLocation] = useState<SelectedLocation | null>(null);
   const [profile, setProfile] = useState<Profile>(DEFAULT_PROFILE);
   const [lowBandwidth, setLowBandwidth] = useState(false);
-
-  const air = useAirData(lang);
-  const advanceToPlan = useCallback(() => setStep(3), []);
-  const plan = usePlanRequest(advanceToPlan);
-
-  /** The request inputs for the current selection, or null before a place. */
-  function currentInput(): PlanRequestInput | null {
-    if (!location) return null;
-    return { profile, lang, airData: air.airData, location };
-  }
 
   function selectLocation(selected: SelectedLocation): void {
     const normalised: SelectedLocation = {
@@ -131,40 +119,76 @@ export function useAppFlow(): AppFlow {
     };
     setLocation(normalised);
     setStep(2);
-    plan.clear();
+    clearPlan();
     void air.load(normalised);
   }
 
   return {
-    lang,
-    theme,
     step,
+    setStep,
     location,
     profile,
     lowBandwidth,
+    setLowBandwidth,
+    selectLocation,
+    patchProfile: (patch: Partial<Profile>) =>
+      setProfile((current) => ({ ...current, ...patch })),
+    startOver: () => {
+      setStep(1);
+      clearPlan();
+    },
+  };
+}
+
+/** The three plan handlers, bound to the current input (or a no-op before one). */
+function usePlanBindings(plan: PlanState, input: () => PlanRequestInput | null) {
+  return {
+    submitPlan: async () => {
+      const value = input();
+      if (value) await plan.submit(value);
+    },
+    cancelPlan: () => {
+      const value = input();
+      if (value) plan.cancel(value);
+    },
+    askQuestion: async (question: AskQuestion) => {
+      const value = input();
+      if (value) await plan.ask(value, question);
+    },
+  };
+}
+
+/**
+ * The whole client flow: place, profile, plan and the fixed questions.
+ *
+ * Composed from `usePreferences`, `useAirData` and `usePlanRequest` so this hook
+ * only holds the navigation state and the bindings between them.
+ */
+export function useAppFlow(): AppFlow {
+  const { lang, theme, setTheme, selectLanguage } = usePreferences();
+  const [step, setStep] = useState<Step>(1);
+  const air = useAirData(lang);
+  const advanceToPlan = useCallback(() => setStep(3), []);
+  const plan = usePlanRequest(advanceToPlan);
+  const navigation = useFlowState(air, plan.clear, step, setStep);
+  const actions = usePlanBindings(plan, () => {
+    if (!navigation.location) return null;
+    return {
+      profile: navigation.profile,
+      lang,
+      airData: air.airData,
+      location: navigation.location,
+    };
+  });
+
+  return {
+    lang,
+    theme,
+    ...navigation,
     air,
     plan,
     setTheme,
-    setStep,
-    setLowBandwidth,
-    patchProfile: (patch) => setProfile((current) => ({ ...current, ...patch })),
-    selectLocation,
     selectLanguage,
-    submitPlan: async () => {
-      const input = currentInput();
-      if (input) await plan.submit(input);
-    },
-    cancelPlan: () => {
-      const input = currentInput();
-      if (input) plan.cancel(input);
-    },
-    askQuestion: async (question) => {
-      const input = currentInput();
-      if (input) await plan.ask(input, question);
-    },
-    startOver: () => {
-      setStep(1);
-      plan.clear();
-    },
+    ...actions,
   };
 }

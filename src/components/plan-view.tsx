@@ -38,6 +38,20 @@ interface PlanViewProps {
   lon?: number | null;
 }
 
+/** The optional quick-question block, absent when the caller has no handler. */
+function AskSection({ props }: { props: PlanViewProps }) {
+  if (!props.onAsk) return null;
+  return (
+    <PlanAsk
+      lang={props.lang}
+      onAsk={props.onAsk}
+      answer={props.answer}
+      answerLoading={props.answerLoading}
+      answerError={props.answerError}
+    />
+  );
+}
+
 /**
  * Plan screen: headline, what this means, indoor hacks, sustainable
  * alternatives, print and share actions.
@@ -45,20 +59,8 @@ interface PlanViewProps {
  * Each block is its own component; this file only decides the order and owns
  * the two pieces of view state that outlive a single block (speech and copy).
  */
-export function PlanView({
-  plan,
-  lang,
-  onBack,
-  onRegenerate,
-  profile,
-  pm25,
-  lat,
-  lon,
-  onAsk,
-  answer,
-  answerLoading,
-  answerError,
-}: PlanViewProps) {
+export function PlanView(props: PlanViewProps) {
+  const { plan, lang, onBack, onRegenerate, profile, pm25, lat, lon } = props;
   const text = planToText(plan, lang);
   const { speaking, speechError, toggle } = useSpeech(text, lang);
   const { copied, copy } = useCopy(text);
@@ -66,28 +68,13 @@ export function PlanView({
   return (
     <section aria-labelledby="plan-heading" data-band={plan.severity}>
       <PlanHeader lang={lang} severity={plan.severity} />
-
       <PlanBanners plan={plan} lang={lang} />
       <PlanSummary plan={plan} lang={lang} />
-
       <PlanContext lang={lang} profile={profile} pm25={pm25} lat={lat} lon={lon} />
-
       <PlanRoutines plan={plan} lang={lang} />
-
-      {onAsk ? (
-        <PlanAsk
-          lang={lang}
-          onAsk={onAsk}
-          answer={answer}
-          answerLoading={answerLoading}
-          answerError={answerError}
-        />
-      ) : null}
-
+      <AskSection props={props} />
       <PlanRecommendations plan={plan} lang={lang} />
-
       <CommunityChecklist lang={lang} />
-
       <PlanActions
         lang={lang}
         whatsappHref={whatsappShareHref(text)}
@@ -99,7 +86,6 @@ export function PlanView({
         onRegenerate={onRegenerate}
         onBack={onBack}
       />
-
       <p className="hint mt-3">{t(lang, 'footerMedical')}</p>
     </section>
   );

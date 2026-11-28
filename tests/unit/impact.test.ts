@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IMPACT_FACTORS, compareWithWithout, whyThisPlanFits } from '@/lib/impact/impact';
+import { IMPACT_FACTORS, compareWithWithout, whyThisPlanFits } from '@/lib/impact';
 import type { Profile } from '@/lib/shared/schemas';
 import { PROFILE } from '../fixtures';
 
